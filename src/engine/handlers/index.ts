@@ -1,19 +1,20 @@
-// Registry bootstrap (the C# CardRegistrations.RegisterAll). Families without
-// a registered handler are filtered from the deck at setup (allowlist) and
-// auto-skipped everywhere else, so the game stays playable while the port
-// grows. Remaining families to port (see PORT-PLAN.md): sabotage_*,
-// research_*, execute_*.
+// Registry bootstrap (the C# CardRegistrations.RegisterAll). All 47 card
+// families are registered — the setup allowlist now admits the full
+// 108-card deck.
 import { EffectRegistry } from '../effects';
 import { registerBasicCommon } from './basicCommon';
 import { registerBuild } from './build';
 import { registerCommand } from './command';
 import { registerDraw } from './draw';
+import { registerExecute } from './execute';
 import { homePickHandler } from './homePick';
 import { registerMine } from './mine';
 import { registerMovementTechs } from './movementTechs';
 import { registerPlan } from './plan';
 import { registerRaceTechs } from './raceTechs';
 import { registerRefine } from './refine';
+import { registerResearch } from './research';
+import { registerSabotage } from './sabotage';
 import { registerTrade } from './trade';
 
 export function buildRegistry(): EffectRegistry {
@@ -29,5 +30,8 @@ export function buildRegistry(): EffectRegistry {
   registerBasicCommon(r);
   registerRaceTechs(r);
   registerMovementTechs(r);
+  registerResearch(r);
+  registerExecute(r);
+  registerSabotage(r);
   return r;
 }

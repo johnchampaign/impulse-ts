@@ -33,13 +33,15 @@ function cardCensus(g: ImpulseState): Map<number, number> {
       if (tech.type === 'researched') add(tech.cardId);
     }
   }
-  // Mid-effect limbo: face-down battle reinforcements (and cruiser draws)
-  // live inside handler state until the battle resolves. Scan recursively —
-  // battles can nest inside activation sub-contexts.
-  const scanForBattles = (v: unknown): void => {
+  // Mid-effect limbo: cards held inside handler state until the effect
+  // resolves — face-down battle reinforcements + cruiser draws, a research
+  // deck-draw awaiting its slot pick, and an executing card awaiting its
+  // sub-effect's completion. Scan recursively — these nest inside
+  // activation/execute sub-contexts.
+  const scanLimbo = (v: unknown): void => {
     if (v === null || typeof v !== 'object') return;
     if (Array.isArray(v)) {
-      v.forEach(scanForBattles);
+      v.forEach(scanLimbo);
       return;
     }
     const o = v as Record<string, unknown>;
@@ -50,9 +52,15 @@ function cardCensus(g: ImpulseState): Map<number, number> {
       }
       return;
     }
-    Object.values(o).forEach(scanForBattles);
+    if (o['pickedFromDeck'] === true && typeof o['pickedCardId'] === 'number') {
+      add(o['pickedCardId']);
+    }
+    if (typeof o['cardToDiscardOnComplete'] === 'number') {
+      add(o['cardToDiscardOnComplete']);
+    }
+    Object.values(o).forEach(scanLimbo);
   };
-  scanForBattles(g.effect?.handlerState);
+  scanLimbo(g.effect?.handlerState);
   return census;
 }
 

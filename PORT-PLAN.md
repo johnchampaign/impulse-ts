@@ -52,31 +52,45 @@ Tyrants / Innovation / Rebellion.
   exploration pause/resume, mid-effect JSON round-trip resumability.
 - Smoke: 30/30 games decided by prestige (avg ~19 turns, no turn caps).
 
+## Done — Phase 1c: Research, Execute, Sabotage — FULL DECK ✅
+
+- Research (5 families): hand/deck/Plan sources, slot overwrite with skip
+  semantics per source, c18 ThenExecute sub-effect, c101 plan-order
+  preservation. Deck draws awaiting a slot are census-visible limbo
+  (`pickedFromDeck` flag).
+- Execute (3 families): the meta-action — card-from-hand / random deck top /
+  own tech, via a nested sub-context; the executed card is discarded only
+  when its sub-effect completes (`cardToDiscardOnComplete` limbo).
+- Sabotage (3 families): patrol/occupy target legality, per-bomb deck
+  reveals, size-2+ hits, no-overkill destruction with per-ship prestige.
+- **All 47 effect families registered — the setup allowlist now admits the
+  full 108-card deck.** Smoke: 30/30 games decided, avg ~22 turns.
+
 ## Known gaps
 
-- Sabotage, Research, Execute families (research seam = tech overwrite +
-  nested execute; sabotage needs the battle ship-destruction path — now
-  available).
 - **Cancel is not supported** (rejected by the driver): the C#
   restart-on-cancel wipes handler state, which here can own cards
   (committed battle reinforcements) — a leak. Needs per-request cancel
   semantics that restore owned cards before the UI adds a cancel button.
 - No initiative marker (deferred in C# too), no team mode.
+- Elimination (player at 0 on-map ships) is not enforced as a game-state
+  rule — matches current C# behavior; verify against rulebook later.
 
 ## Next phases
 
-1. **Research / Execute / Sabotage** — completes all 47 families; deck
-   allowlist becomes the full 108. Port their C# tests alongside.
-3. **Server + online play** (playbook Phase 2): Cloudflare Pages Functions +
+1. **Soak + fidelity pass**: port more C# tests (CommandHandlerTests,
+   BattleTriggerTests, ExplorationTests cases) to vitest; run a
+   hundreds-of-games soak.
+2. **Server + online play** (playbook Phase 2): Cloudflare Pages Functions +
    Supabase via the framework `GameServer`; curl smoke before any UI.
-4. **UI** (playbook Phase 3): React + `useGame`; hex map, hand, Impulse
+3. **UI** (playbook Phase 3): React + `useGame`; hex map, hand, Impulse
    track, plan/tech/prestige panels; bug reports + update banner + realtime
    + chat + identity kit the same week. Bring-your-own-art `.vmod` drop-in
    for card art (framework `vassal-assets.md`).
-5. **Leaderboard**: hub identity → seat→playerId in `GameMeta` → report
+4. **Leaderboard**: hub identity → seat→playerId in `GameMeta` → report
    results (`ranking` already populated by the adapter) → hub Glicko-2
    ratings (framework `ratings-design.md`).
-6. **(Optional) AI seats** — port `PolicyController` for solo play /
+5. **(Optional) AI seats** — port `PolicyController` for solo play /
    filling empty seats (framework `ai-seats-design.md`).
 
 ## Guardrails
