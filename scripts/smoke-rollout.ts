@@ -33,6 +33,26 @@ function cardCensus(g: ImpulseState): Map<number, number> {
       if (tech.type === 'researched') add(tech.cardId);
     }
   }
+  // Mid-effect limbo: face-down battle reinforcements (and cruiser draws)
+  // live inside handler state until the battle resolves. Scan recursively —
+  // battles can nest inside activation sub-contexts.
+  const scanForBattles = (v: unknown): void => {
+    if (v === null || typeof v !== 'object') return;
+    if (Array.isArray(v)) {
+      v.forEach(scanForBattles);
+      return;
+    }
+    const o = v as Record<string, unknown>;
+    if (Array.isArray(o['attackerReinforcements']) && Array.isArray(o['defenderReinforcements'])) {
+      for (const key of ['attackerReinforcements', 'defenderReinforcements',
+        'attackerCruiserDraws', 'defenderCruiserDraws'] as const) {
+        (o[key] as number[]).forEach(add);
+      }
+      return;
+    }
+    Object.values(o).forEach(scanForBattles);
+  };
+  scanForBattles(g.effect?.handlerState);
   return census;
 }
 

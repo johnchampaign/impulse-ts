@@ -79,7 +79,10 @@ export const impulseAdapter: GameAdapter<ImpulseState, ImpulseAction, Seat> = {
       if (nc.kind === 'faceDown') v.nodeCards[Number(nid)] = { kind: 'faceDown', cardId: HIDDEN_CARD };
     }
     if (v.effect) {
-      if (v.effect.seat !== viewer) v.effect.handlerState = null;
+      // Handler state can hold hidden information belonging to EITHER side
+      // (e.g. face-down battle reinforcements from both players), so it is
+      // stripped from every view — the UI renders prompts, not handler state.
+      v.effect.handlerState = null;
       if (v.effect.pendingChoice) {
         v.effect.pendingChoice = redactChoice(v.effect.pendingChoice, viewer);
       }

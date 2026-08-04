@@ -208,6 +208,7 @@ export function startEffect(
     isComplete: false,
     transportBonusGems: 0,
     activationDepth: 0,
+    pendingDefenderCandidates: null,
   };
   runEffectLoop(g, registry);
 }
@@ -297,14 +298,12 @@ export function applyAction(
     const ctx = g.effect;
     if (!ctx?.pendingChoice) throw new IllegalActionError('no pending choice');
     if (action.answer.type === 'cancel') {
-      // Restart the effect from scratch (mirrors the C# Cancelled path).
-      log(g, { side: actor, kind: 'choice.cancel', msg: `${actor} cancelled; restarting effect` });
-      ctx.pendingChoice = null;
-      ctx.handlerState = null;
-      g.pending = null;
-      runEffectLoop(g, registry);
-      advance(g, registry);
-      return;
+      // The C# restart-on-cancel path (null the handler state, re-run) is
+      // NOT safe here: handler state can own cards mid-effect (battle
+      // reinforcements committed from hand), and wiping it would leak them.
+      // Cancel needs per-request semantics that restore owned cards; until
+      // that design lands, cancel is rejected.
+      throw new IllegalActionError('cancel is not supported');
     }
     attachAnswer(ctx.pendingChoice, action.answer);
     g.pending = null;
@@ -449,7 +448,11 @@ function attachAnswer(req: ChoiceRequest, answer: ChoiceAnswer): void {
     }
     case 'declareMove': {
       if (answer.type !== 'declareMove') return fail();
-      if (answer.pathIndex < 0 || answer.pathIndex >= req.legalPaths.length) return fail();
+      if (answer.pathIndex === -1) {
+        if (!req.allowStay) return fail();
+      } else if (answer.pathIndex < 0 || answer.pathIndex >= req.legalPaths.length) {
+        return fail();
+      }
       req.answer = { pathIndex: answer.pathIndex };
       return;
     }
@@ -532,8 +535,13 @@ function answersFor(req: ChoiceRequest): ChoiceAnswer[] {
       if (req.allowSkip) out.push({ type: 'fleet', loc: null });
       return out;
     }
-    case 'declareMove':
-      return req.legalPaths.map((_, pathIndex) => ({ type: 'declareMove' as const, pathIndex }));
+    case 'declareMove': {
+      const out: ChoiceAnswer[] = req.legalPaths.map((_, pathIndex) => ({
+        type: 'declareMove' as const, pathIndex,
+      }));
+      if (req.allowStay) out.push({ type: 'declareMove', pathIndex: -1 });
+      return out;
+    }
     case 'selectFleetSize':
       return Array.from({ length: req.max - req.min + 1 }, (_, i) => ({
         type: 'fleetSize' as const, size: req.min + i,

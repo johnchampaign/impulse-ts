@@ -1,7 +1,6 @@
-// Basic Unique tech handlers — the four that don't need the Command movement
-// machinery. Ariek and Herculese (fleet movement) land with the Command port;
-// the Basic Common tech (Command-or-Build) lands then too. Ported from C#
-// BasicUniqueTechHandlers.
+// Basic Unique tech handlers — the four that don't need movement machinery.
+// Ariek and Herculese live in movementTechs.ts; the Basic Common tech in
+// basicCommon.ts. Ported from C# BasicUniqueTechHandlers.
 import type { EffectHandler, EffectRegistry } from '../effects';
 import { card } from '../catalog';
 import { log, logInfo } from '../log';
@@ -190,6 +189,4 @@ export function registerRaceTechs(r: EffectRegistry): void {
   r.register('tech_basic_unique_caelumnites', caelumnitesHandler);
   r.register('tech_basic_unique_draconians', draconiansHandler);
   r.register('tech_basic_unique_triangulumnists', triangulumnistsHandler);
-  // tech_basic_unique_ariek, tech_basic_unique_herculese and
-  // _tech_basic_common land with the Command/movement port.
 }

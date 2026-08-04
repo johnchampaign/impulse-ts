@@ -31,4 +31,12 @@ Grow this alongside `src/engine/`; `msg` is only the UI rendering.
 | `tech.piscesish` | `{ cardId, outcome }` | kept entries are `secret` |
 | `research` | `{ cardId, slot, replaced }` | |
 | `ship.build` / `ship.move` / `ship.destroyed` | `{ loc / from,to }` | |
-| `choice.cancel` | — | effect restarted |
+| `explore.take` | `{ nodeId, cardId }` | `secret` (goes to mover's hand) |
+| `explore.place` | `{ nodeId, cardId }` | |
+| `battle.start` | `{ gateId, attacker, defender, attackerCruisers, passageNode }` | |
+| `battle.reinforce` | `{ cardId }` | `secret` until reveal |
+| `battle.bluff` | `{ cardId }` | revealed, returned to hand |
+| `battle.result` | `{ winner, totals, destroyedCount, … }` | full summary in `msg` |
+| `card.activate` | `{ nodeId, cardId }` | transports activating a card |
+| `core.activate` | `{ color, gems, bonusTransports, points }` | |
+| `alert` | `{ reason, … }` | player-facing explanations (e.g. convergence) |

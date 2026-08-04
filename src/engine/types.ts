@@ -159,6 +159,9 @@ export interface DeclareMoveRequest {
   origin: ShipLocation;
   maxMoves: number;
   legalPaths: ShipLocation[][];
+  // When true, pathIndex -1 means "stay" (no movement) — the C# empty-path
+  // convention from the WPF STAY button.
+  allowStay: boolean;
   answer?: { pathIndex: number };
 }
 
@@ -232,6 +235,9 @@ export interface EffectCtx {
   isComplete: boolean;
   transportBonusGems: number;
   activationDepth: number;
+  // Set while awaiting the attacker's choice of defender among multiple
+  // eligible enemies (rulebook p.29); consumed on resume. See battle.ts.
+  pendingDefenderCandidates: Seat[] | null;
 }
 
 // ---------- actions ----------

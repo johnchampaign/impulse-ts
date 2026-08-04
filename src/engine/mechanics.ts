@@ -181,6 +181,38 @@ export function addCardToPlan(g: ImpulseState, seat: Seat, cardId: number): void
   }
 }
 
+// Begin exploration: move the face-down card at `node` into the player's
+// hand (temporarily exceeding the hand cap is allowed per rulebook p.29).
+// The node's entry is removed; finishExploration reinstates a face-up entry
+// once the player chooses a card to place.
+export function startExploration(g: ImpulseState, seat: Seat, nodeId: number): number {
+  const nc = g.nodeCards[nodeId];
+  if (nc?.kind !== 'faceDown') throw new Error(`node N${nodeId} is not face-down`);
+  const p = getPlayer(g, seat);
+  p.hand.push(nc.cardId);
+  delete g.nodeCards[nodeId];
+  const c = card(nc.cardId);
+  log(g, {
+    side: seat, kind: 'explore.take', payload: { nodeId, cardId: nc.cardId },
+    msg: `${seat} explores N${nodeId}: takes #${nc.cardId} (${c.color}/${c.size}) into hand`,
+    secret: true,
+  });
+  return nc.cardId;
+}
+
+export function finishExploration(g: ImpulseState, seat: Seat, nodeId: number, placedCardId: number): void {
+  const p = getPlayer(g, seat);
+  const i = p.hand.indexOf(placedCardId);
+  if (i < 0) throw new Error(`${seat} hand missing #${placedCardId}`);
+  p.hand.splice(i, 1);
+  g.nodeCards[nodeId] = { kind: 'faceUp', cardId: placedCardId };
+  const c = card(placedCardId);
+  log(g, {
+    side: seat, kind: 'explore.place', payload: { nodeId, cardId: placedCardId },
+    msg: `${seat} places #${placedCardId} (${c.color}/${c.size}) face-up at N${nodeId}`,
+  });
+}
+
 export function buildShip(g: ImpulseState, owner: Seat, loc: ShipLocation): number {
   const p = getPlayer(g, owner);
   if (p.shipsAvailable <= 0) return 0;

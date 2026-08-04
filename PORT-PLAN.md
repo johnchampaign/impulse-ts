@@ -29,28 +29,44 @@ Tyrants / Innovation / Rebellion.
   adapter — card + ship conservation, no stalls, no redaction leaks,
   legalActions⇄tryApplyAction agreement. ✅
 
-## Known slice gaps (the game is smaller, not broken)
+## Done — Phase 1b: Command, battle, exploration ✅
 
-- **Command families are NOT ported** — the single biggest piece
-  (C# `CommandHandler.cs`, 873 lines): fleet selection, path declaration,
-  movement execution, map activation (transports landing on a card fire its
-  effect), battle + exploration sub-machines, multi-fleet convergence.
-  Without it there is no ship movement, so Phase-5 core-patrol prestige is
-  inert and games are won via trade/refine only.
-- Sabotage, Research, Execute families; Basic Common tech and
-  Ariek/Herculese techs (all need Command/movement or the research seam).
+- All 11 command families ported from `CommandHandler.cs` with per-card
+  params: fleet selection, fleet size, path declaration (incl. STAY),
+  movement execution, sector-core + face-up card activation with transport
+  bonus gems, activation chain-depth cap, multi-fleet sequential resolution
+  with "same card" convergence narrowing + deferred single activation
+  (designer ruling 2016-12-26) and the no-convergent-fleet player alert.
+- Battle sub-machine (`src/engine/battle.ts`): defender-then-attacker
+  face-down reinforcements (bluffs legal, revealed and returned), per-cruiser
+  draws, defender-wins-ties, patrol-through third-party transport
+  destruction, prestige awards, structured `battle.result` log entry.
+  Reinforcement commits are `secret` log entries; battle arrays live in
+  handler state and handler state is stripped from every redacted view.
+- Exploration (declared-path flips): take face-down card to hand, place a
+  card face-up, movement resumes. Shared per-step walker in
+  `src/engine/handlers/movementExec.ts` (C# duplicated it per handler).
+- Basic Common tech (discard → Command-or-Build), Ariek, Herculese.
+- vitest suite (`tests/engine.test.ts`): battle win/tie resolution,
+  reinforcement anchors (not minerals), patrol-through path filter,
+  exploration pause/resume, mid-effect JSON round-trip resumability.
+- Smoke: 30/30 games decided by prestige (avg ~19 turns, no turn caps).
+
+## Known gaps
+
+- Sabotage, Research, Execute families (research seam = tech overwrite +
+  nested execute; sabotage needs the battle ship-destruction path — now
+  available).
+- **Cancel is not supported** (rejected by the driver): the C#
+  restart-on-cancel wipes handler state, which here can own cards
+  (committed battle reinforcements) — a leak. Needs per-request cancel
+  semantics that restore owned cards before the UI adds a cancel button.
 - No initiative marker (deferred in C# too), no team mode.
-- Turn-capped random games (~13% of smoke runs) are random-AI artifacts —
-  revisit once smarter AI seats land.
 
 ## Next phases
 
-1. **Command + movement execution** — port `CommandHandler`, `BattleResolver`,
-   `DefenderChoice`, exploration; then Basic Common tech, Ariek, Herculese.
-   Port the C# tests (`CommandHandlerTests`, `BattleTriggerTests`,
-   `ExplorationTests`) to vitest alongside.
-2. **Research / Execute / Sabotage** — completes all 47 families; deck
-   allowlist becomes the full 108.
+1. **Research / Execute / Sabotage** — completes all 47 families; deck
+   allowlist becomes the full 108. Port their C# tests alongside.
 3. **Server + online play** (playbook Phase 2): Cloudflare Pages Functions +
    Supabase via the framework `GameServer`; curl smoke before any UI.
 4. **UI** (playbook Phase 3): React + `useGame`; hex map, hand, Impulse
