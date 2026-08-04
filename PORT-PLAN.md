@@ -76,21 +76,32 @@ Tyrants / Innovation / Rebellion.
 - Elimination (player at 0 on-map ships) is not enforced as a game-state
   rule — matches current C# behavior; verify against rulebook later.
 
+## Done — Phase 2: server + online play ✅
+
+- `npm run soak`: 300 games, 2–6 players, all decided, zero stalls, with
+  periodic mid-game JSON round-trip resumes.
+- Pages Functions router (`functions/api/[[path]].ts`, mirrors
+  innovation-ts): create/fetch/legal/submit/claim/report/chat +
+  `/api/upload-log` GitHub relay. Shared Supabase project (same secret
+  convention as the other games), ranked-play identity + ratings ingest
+  wired.
+- **Deployed: https://impulse-ts.pages.dev** — live API smoke passed:
+  2p game created, home picks + impulse + multi-stage tech effects played
+  through both seat tokens, out-of-turn submit rejected, redaction held
+  mid-game. See DEPLOY.md.
+
 ## Next phases
 
-1. **Soak + fidelity pass**: port more C# tests (CommandHandlerTests,
-   BattleTriggerTests, ExplorationTests cases) to vitest; run a
-   hundreds-of-games soak.
-2. **Server + online play** (playbook Phase 2): Cloudflare Pages Functions +
-   Supabase via the framework `GameServer`; curl smoke before any UI.
-3. **UI** (playbook Phase 3): React + `useGame`; hex map, hand, Impulse
+1. **Fidelity pass**: port more C# tests (CommandHandlerTests,
+   BattleTriggerTests, ExplorationTests cases) to vitest.
+2. **UI** (playbook Phase 3): React + `useGame`; hex map, hand, Impulse
    track, plan/tech/prestige panels; bug reports + update banner + realtime
    + chat + identity kit the same week. Bring-your-own-art `.vmod` drop-in
    for card art (framework `vassal-assets.md`).
-4. **Leaderboard**: hub identity → seat→playerId in `GameMeta` → report
+3. **Leaderboard**: hub identity → seat→playerId in `GameMeta` → report
    results (`ranking` already populated by the adapter) → hub Glicko-2
    ratings (framework `ratings-design.md`).
-5. **(Optional) AI seats** — port `PolicyController` for solo play /
+4. **(Optional) AI seats** — port `PolicyController` for solo play /
    filling empty seats (framework `ai-seats-design.md`).
 
 ## Guardrails

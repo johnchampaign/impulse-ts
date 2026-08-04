@@ -1,0 +1,23 @@
+# Cloudflare Pages config. The Pages Functions backend (functions/api/**) is
+# auto-discovered; this file declares the project name + build output.
+# NOTE: without pages_build_output_dir wrangler silently ignores this file
+# (framework integration-guide gotcha).
+#
+# Deploy (canonical):
+#   npm run build
+#   npx wrangler pages deploy --project-name=impulse-ts
+#
+# Env vars (Cloudflare dashboard, Pages project → Settings → Environment
+# variables → Production):
+#   SUPABASE_URL
+#   SUPABASE_SERVICE_ROLE_KEY  (service-role key; never exposed to the client)
+#   PUBLIC_ORIGIN              (optional; defaults to request's origin)
+#   GITHUB_TOKEN               (optional; bug-report → GitHub issue relay)
+#   RATINGS_INGEST_KEY         (optional; enables ranked play via the hub)
+#
+# See DEPLOY.md for the full first-deploy walkthrough.
+
+name = "impulse-ts"
+pages_build_output_dir = "dist"
+compatibility_date = "2026-06-01"
+compatibility_flags = ["nodejs_compat"]

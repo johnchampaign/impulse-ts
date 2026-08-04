@@ -1,0 +1,262 @@
+// Cloudflare Pages Functions backend for the lobby + game API. Mirrors the
+// proven innovation-ts router (same framework version, same env names so the
+// shared Supabase project secret works across games).
+// Routes:
+//   POST  /api/games                    body: {numPlayers} → {gameId, invites}
+//   GET   /api/games/:id?token=...      → ViewResult
+//   GET   /api/games/:id/legal?token=…  → Action[]
+//   POST  /api/games/:id/submit?token=… body: {action, identityToken?} → ViewResult
+//   POST  /api/games/:id/claim?token=…  body: {identityToken} → {ok, playerId}
+//   POST  /api/games/:id/report?token=… body: report → {reportId}
+//   GET   /api/games/:id/chat?token=…   → ChatMessage[]
+//   POST  /api/games/:id/chat?token=…   body: {body} → ChatMessage[]
+//   POST  /api/upload-log               body: state+log → GitHub issue
+import { createClient } from '@supabase/supabase-js';
+import {
+  GameServer, SupabaseStore, NoopNotifier, verifyIdentityToken, type Jwks,
+} from 'digital-boardgame-framework/server';
+import { jsonCodec } from 'digital-boardgame-framework';
+import { createGame as newImpulseGame, impulseAdapter } from '../../src/adapter/impulseAdapter';
+import { seatOf, type ImpulseAction, type ImpulseState, type Seat } from '../../src/engine/types';
+
+interface Env {
+  SUPABASE_URL: string;
+  /** Service-role key; named to match the other games so one shared Supabase
+   *  project's secret works everywhere. Never exposed to the client. */
+  SUPABASE_SERVICE_ROLE_KEY: string;
+  PUBLIC_ORIGIN?: string;
+  /** PAT with issues:write on the reports repo (optional; 503 without). */
+  GITHUB_TOKEN?: string;
+  /** owner/repo for bug-report issues. Defaults to johnchampaign/impulse-ts-reports. */
+  REPORTS_REPO?: string;
+  /** Shared secret matching the hub's RATINGS_INGEST_KEY (enables ranked play). */
+  RATINGS_INGEST_KEY?: string;
+}
+
+interface RouteCtx { request: Request; env: Env; }
+
+// Cached hub JWKS for verifying ranked-play identity tokens (refreshed hourly).
+const HUB = 'https://games-hub-5vo.pages.dev';
+let _jwks: Jwks | undefined;
+let _jwksAt = 0;
+async function getJwks(): Promise<Jwks> {
+  if (!_jwks || Date.now() - _jwksAt > 3_600_000) {
+    _jwks = (await (await fetch(`${HUB}/id/jwks`)).json()) as Jwks;
+    _jwksAt = Date.now();
+  }
+  return _jwks;
+}
+
+function server(env: Env, origin: string) {
+  const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
+    auth: { persistSession: false },
+  });
+  return new GameServer<ImpulseState, ImpulseAction, Seat>({
+    snapshotHistory: 20,
+    adapter: impulseAdapter,
+    codec: jsonCodec<ImpulseState>(),
+    store: new SupabaseStore(supabase),
+    notifier: new NoopNotifier(),
+    playBeacon: { appId: 'impulse' },
+    gameUrl: (gameId, token) =>
+      `${origin}/?game=${encodeURIComponent(gameId)}&token=${encodeURIComponent(token)}`,
+    verifyIdentity: async (t) => verifyIdentityToken(t, await getJwks()),
+    ...(env.RATINGS_INGEST_KEY
+      ? { ratings: { game: 'impulse', ingestKey: env.RATINGS_INGEST_KEY } }
+      : {}),
+  });
+}
+
+function json(data: unknown, status = 200): Response {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { 'content-type': 'application/json', 'cache-control': 'no-store' },
+  });
+}
+
+function bad(msg: string, status = 400): Response {
+  return json({ error: msg }, status);
+}
+
+async function readJson<T>(req: Request): Promise<T> {
+  try { return await req.json() as T; }
+  catch { throw new Error('invalid JSON body'); }
+}
+
+function originOf(env: Env, req: Request): string {
+  if (env.PUBLIC_ORIGIN) return env.PUBLIC_ORIGIN.replace(/\/$/, '');
+  const u = new URL(req.url);
+  return `${u.protocol}//${u.host}`;
+}
+
+/** Engine seeds come from server-side entropy — the engine itself stays
+ *  deterministic from this single number. */
+function randomSeed(): number {
+  const buf = new Uint32Array(1);
+  crypto.getRandomValues(buf);
+  return buf[0]!;
+}
+
+interface UploadLogBody {
+  kind: 'bug' | 'logs';
+  severity: 'bug' | 'rules-question' | 'feedback';
+  message: string;
+  timestamp: string;
+  userAgent: string;
+  build: string;
+  state: unknown;
+  log: unknown;
+  screenshotDownloaded?: boolean;
+}
+
+/** File a GitHub Issue with the user-submitted state + log (innovation-ts
+ *  pattern; body bounded to fit GitHub's 65,536-char limit). */
+async function uploadLog(env: Env, request: Request): Promise<Response> {
+  if (!env.GITHUB_TOKEN) {
+    return bad('GitHub upload not configured (missing GITHUB_TOKEN secret).', 503);
+  }
+  const body = await request.json() as UploadLogBody;
+  const repo = env.REPORTS_REPO ?? 'johnchampaign/impulse-ts-reports';
+
+  const firstLine = (body.message || '').split('\n')[0]!.slice(0, 80).trim();
+  const title = body.kind === 'bug'
+    ? `[bug] ${firstLine || '(no description)'}`
+    : `[log] session ${body.timestamp}`;
+
+  let jsonBlob = JSON.stringify({ state: body.state, log: body.log }, null, 2);
+  const MAX_JSON = 58_000;
+  let truncated = false;
+  if (jsonBlob.length > MAX_JSON) {
+    jsonBlob = jsonBlob.slice(0, MAX_JSON) + '\n... [truncated]';
+    truncated = true;
+  }
+
+  const issueBody = [
+    body.kind === 'bug' ? '**Bug report from the in-game UI.**' : '**Session log upload.**',
+    '',
+    body.message
+      ? body.message.split('\n').map((l) => '> ' + l).join('\n')
+      : '_(no description provided)_',
+    '',
+    `- **Severity:** \`${body.severity}\``,
+    `- **Build:** \`${body.build}\``,
+    `- **Timestamp:** \`${body.timestamp}\``,
+    `- **User agent:** \`${body.userAgent}\``,
+    truncated ? '- **State+log:** truncated to 58KB' : '',
+    body.screenshotDownloaded
+      ? '- **Screenshot:** downloaded to the reporter\'s machine — drag it into a comment here to attach.'
+      : '',
+    '',
+    '<details><summary>State + log (JSON)</summary>',
+    '',
+    '```json',
+    jsonBlob,
+    '```',
+    '',
+    '</details>',
+  ].filter(Boolean).join('\n');
+
+  const ghRes = await fetch(`https://api.github.com/repos/${repo}/issues`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${env.GITHUB_TOKEN}`,
+      'User-Agent': 'impulse-ts-pages-function',
+      Accept: 'application/vnd.github+json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      title,
+      body: issueBody,
+      labels: body.kind === 'bug' ? ['user-bug', body.severity] : ['session-log'],
+    }),
+  });
+  if (!ghRes.ok) {
+    const errText = await ghRes.text();
+    return bad(`GitHub API ${ghRes.status}: ${errText.slice(0, 300)}`, 502);
+  }
+  const issue = await ghRes.json() as { html_url: string; number: number };
+  return json({ issueUrl: issue.html_url, issueNumber: issue.number });
+}
+
+export const onRequest = async ({ request, env }: RouteCtx): Promise<Response> => {
+  const url = new URL(request.url);
+  const path = url.pathname.replace(/^\/api/, '');
+  const token = url.searchParams.get('token') ?? undefined;
+
+  try {
+    if (path === '/upload-log' && request.method === 'POST') {
+      return await uploadLog(env, request);
+    }
+
+    // POST /api/games — create
+    if (path === '/games' && request.method === 'POST') {
+      const body = await readJson<{ numPlayers: number; seed?: number }>(request);
+      const numPlayers = Number(body.numPlayers);
+      if (!Number.isInteger(numPlayers) || numPlayers < 2 || numPlayers > 6) {
+        return bad('numPlayers must be 2..6');
+      }
+      const seed = Number.isInteger(body.seed) ? Number(body.seed) : randomSeed();
+      const players: Seat[] = Array.from({ length: numPlayers }, (_, i) => seatOf(i + 1));
+      const initialState = newImpulseGame({ playerCount: numPlayers, seed });
+      const out = await server(env, originOf(env, request)).createGame({
+        initialState,
+        players,
+      });
+      return json(out);
+    }
+
+    // /api/games/:id...
+    const gameMatch = path.match(/^\/games\/([^/]+)(.*)$/);
+    if (gameMatch) {
+      const [, gameId, rest] = gameMatch as unknown as [string, string, string];
+      if (!token) return bad('missing token', 401);
+      const srv = server(env, originOf(env, request));
+
+      if (rest === '' && request.method === 'GET') {
+        return json(await srv.fetch(gameId, token));
+      }
+      if (rest === '/legal' && request.method === 'GET') {
+        return json(await srv.legalActions(gameId, token));
+      }
+      if (rest === '/submit' && request.method === 'POST') {
+        const body = await readJson<ImpulseAction | { action: ImpulseAction; identityToken?: string }>(request);
+        const hasWrapper = body && typeof body === 'object' && 'action' in body;
+        const action = (hasWrapper ? (body as { action: ImpulseAction }).action : body) as ImpulseAction;
+        const identityToken = hasWrapper ? (body as { identityToken?: string }).identityToken : undefined;
+        if (typeof identityToken === 'string' && identityToken) {
+          try { await srv.claimSeat(gameId, token, identityToken); } catch { /* optional */ }
+        }
+        return json(await srv.submit(gameId, token, action));
+      }
+      if (rest === '/claim' && request.method === 'POST') {
+        const body = await readJson<{ identityToken?: string }>(request);
+        if (typeof body?.identityToken !== 'string' || !body.identityToken) {
+          return bad('identityToken required', 422);
+        }
+        const v = await srv.claimSeat(gameId, token, body.identityToken);
+        return json({ ok: true, playerId: v.playerId });
+      }
+      if (rest === '/report' && request.method === 'POST') {
+        const body = await readJson<Parameters<typeof srv.report>[2]>(request);
+        return json(await srv.report(gameId, token, body));
+      }
+      if (rest === '/chat' && request.method === 'GET') {
+        return json(await srv.listMessages(gameId, token));
+      }
+      if (rest === '/chat' && request.method === 'POST') {
+        const body = await readJson<{ body: string }>(request);
+        const text = typeof body?.body === 'string' ? body.body : '';
+        return json(await srv.postMessage(gameId, token, text));
+      }
+    }
+
+    return bad('not found', 404);
+  } catch (e) {
+    const msg = (e as Error)?.message ?? String(e);
+    const status =
+      /not found|invalid token|forbidden/i.test(msg) ? 404 :
+      /conflict/i.test(msg) ? 409 :
+      400;
+    return bad(msg, status);
+  }
+};
