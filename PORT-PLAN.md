@@ -90,14 +90,28 @@ Tyrants / Innovation / Rebellion.
   through both seat tokens, out-of-turn submit rejected, redaction held
   mid-game. See DEPLOY.md.
 
+## Done — Phase 3 (first cut): React play UI ✅
+
+- Lobby (create 2-6p game → per-seat invite links) + play page on the
+  framework `useGame` hook (`src/ui/`): SVG hex map (nodes, gates, ships,
+  face-up/face-down cards, homes, core), player panels (race, prestige,
+  minerals, techs, plan), readable hand with rules text, prompt panel
+  rendering every legal action as a labeled button (hand cards double as
+  click shortcuts), log pane, never-silent report dialog (thank-you only on
+  a server-issued reportId). Verified in a real browser against the
+  production API: both home picks → addImpulse.
+- Local UI dev: `npm run dev` proxies `/api` to production (no Node-local
+  GameServer; games created in dev are real rows).
+
 ## Next phases
 
 1. **Fidelity pass**: port more C# tests (CommandHandlerTests,
    BattleTriggerTests, ExplorationTests cases) to vitest.
-2. **UI** (playbook Phase 3): React + `useGame`; hex map, hand, Impulse
-   track, plan/tech/prestige panels; bug reports + update banner + realtime
-   + chat + identity kit the same week. Bring-your-own-art `.vmod` drop-in
-   for card art (framework `vassal-assets.md`).
+2. **UI polish + rest of the standard kit**: map-click affordances (click a
+   gate/card instead of a button), update banner + version stamp endpoint,
+   realtime signal (Supabase broadcast), in-game chat panel, hub identity
+   sign-in (anon-first), `.vmod` bring-your-own-art drop-in
+   (framework `vassal-assets.md`), reveal-at-game-over check.
 3. **Leaderboard**: hub identity → seat→playerId in `GameMeta` → report
    results (`ranking` already populated by the adapter) → hub Glicko-2
    ratings (framework `ratings-design.md`).

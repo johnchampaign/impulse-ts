@@ -4,23 +4,9 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Impulse</title>
-    <style>
-      body { font-family: system-ui, sans-serif; background: #0b1020; color: #dfe6f3;
-             display: grid; place-items: center; min-height: 100vh; margin: 0; }
-      main { max-width: 34rem; padding: 2rem; text-align: center; }
-      h1 { letter-spacing: 0.08em; }
-      code { background: #1a2340; padding: 0.15em 0.4em; border-radius: 4px; }
-      a { color: #7fb4ff; }
-    </style>
   </head>
   <body>
-    <main>
-      <h1>IMPULSE</h1>
-      <p>
-        Async multiplayer port of Carl Chudyk's <em>Impulse</em> (2013).
-        The engine and game API are live; the play UI is under construction.
-      </p>
-      <p>API health: <code>POST /api/games</code> creates a game.</p>
-    </main>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

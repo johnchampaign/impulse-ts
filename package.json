@@ -8,6 +8,7 @@
   "scripts": {
     "gen-cards": "node scripts/build-card-data.mjs",
     "build": "npm run gen-cards && vite build",
+    "dev": "npm run gen-cards && vite",
     "typecheck": "npm run gen-cards && tsc --noEmit",
     "smoke": "npm run gen-cards && vite-node scripts/smoke-rollout.ts",
     "soak": "npm run gen-cards && vite-node scripts/soak.ts",
