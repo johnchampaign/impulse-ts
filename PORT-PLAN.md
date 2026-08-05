@@ -66,27 +66,6 @@ Tyrants / Innovation / Rebellion.
 - **All 47 effect families registered — the setup allowlist now admits the
   full 108-card deck.** Smoke: 30/30 games decided, avg ~22 turns.
 
-## Done — card art (optional VASSAL images) ✅
-
-- Players choose between the built-in text UI and real card art loaded from
-  their own copy of the Impulse VASSAL module; a persisted preference, not a
-  fallback. Framework drop-in (`useVmodAssets` + `VmodSetupDialog`), cached
-  in IndexedDB, `?art=0/1` override. `src/ui/assets.tsx` + `CardView.tsx`.
-- This repo and the deployed build ship no art, and no public/ art path
-  exists, so no build configuration can bake it in (`*.vmod` gitignored too).
-- The same option exists in the C# desktop app (`../Impulse`, branch
-  `card-art`) so both versions can use module art.
-
-## Known gaps
-
-- **Cancel is not supported** (rejected by the driver): the C#
-  restart-on-cancel wipes handler state, which here can own cards
-  (committed battle reinforcements) — a leak. Needs per-request cancel
-  semantics that restore owned cards before the UI adds a cancel button.
-- No initiative marker (deferred in C# too), no team mode.
-- Elimination (player at 0 on-map ships) is not enforced as a game-state
-  rule — matches current C# behavior; verify against rulebook later.
-
 ## Done — Phase 2: server + online play ✅
 
 - `npm run soak`: 300 games, 2–6 players, all decided, zero stalls, with
@@ -113,6 +92,27 @@ Tyrants / Innovation / Rebellion.
   production API: both home picks → addImpulse.
 - Local UI dev: `npm run dev` proxies `/api` to production (no Node-local
   GameServer; games created in dev are real rows).
+
+## Done — card art (optional VASSAL images) ✅
+
+- Players choose between the built-in text UI and real card art loaded from
+  their own copy of the Impulse VASSAL module; a persisted preference, not a
+  fallback. Framework drop-in (`useVmodAssets` + `VmodSetupDialog`), cached
+  in IndexedDB, `?art=0/1` override. `src/ui/assets.tsx` + `CardView.tsx`.
+- This repo and the deployed build ship no art, and no public/ art path
+  exists, so no build configuration can bake it in (`*.vmod` gitignored too).
+- The same option exists in the C# desktop app (`../Impulse`, branch
+  `card-art`) so both versions can use module art.
+
+## Known gaps
+
+- **Cancel is not supported** (rejected by the driver): the C#
+  restart-on-cancel wipes handler state, which here can own cards
+  (committed battle reinforcements) — a leak. Needs per-request cancel
+  semantics that restore owned cards before the UI adds a cancel button.
+- No initiative marker (deferred in C# too), no team mode.
+- Elimination (player at 0 on-map ships) is not enforced as a game-state
+  rule — matches current C# behavior; verify against rulebook later.
 
 ## Next phases
 
