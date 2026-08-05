@@ -38,6 +38,29 @@ export interface CreatedGame {
   invites: Record<string, string>;
 }
 
+/** Attach a hub identity to this seat so results can be rated. Best-effort:
+ *  play works fine unattributed, so a failure here must never block the game. */
+export async function claimSeat(
+  gameId: string, token: string, identityToken: string,
+): Promise<boolean> {
+  try {
+    return await withDeadline(async (signal) => {
+      const r = await fetch(
+        `/api/games/${encodeURIComponent(gameId)}/claim?token=${encodeURIComponent(token)}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ identityToken }),
+          signal,
+        },
+      );
+      return r.ok;
+    }, 20_000, 'Linking your account');
+  } catch {
+    return false;
+  }
+}
+
 /** `ai` maps seat → AI policy key; omitted seats are human. */
 export async function createGameOnServer(
   numPlayers: number,

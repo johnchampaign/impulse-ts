@@ -132,6 +132,23 @@ Tyrants / Innovation / Rebellion.
 - Prompt text the AI keys off now lives in `src/engine/prompts.ts` so
   rewording a prompt is a compile-time concern, not a silent AI regression.
 
+## Done — leaderboard + identity ✅
+
+- Hub identity wired client-side (`useIdentity` + `<SignInBar>`): every visitor
+  gets an anon guest identity automatically, can rename it, and can upgrade to
+  a registered account for a rating that survives devices.
+- On opening a game the client claims its seat with the identity token
+  (`POST /api/games/:id/claim`, best-effort — an unattributed seat still plays,
+  it just isn't rated).
+- `<Leaderboard game="impulse">` in the lobby, `<RankedStatus>` + a leaderboard
+  link on the game-over panel.
+- Verified end to end against production: anon identity → claim → full game vs
+  the AI → server reported `{recorded: true}` → the hub leaderboard shows both
+  players with Glicko-2 ratings (AI 1662, human 1338, both provisional).
+- The hub's `/ratings/leaderboard` is slug-based, so no hub-side registry entry
+  is needed for the in-game board. Listing Impulse on the hub index
+  (`games-hub/games.json`) is a separate, optional one-line change.
+
 ## Known gaps
 
 - **Cancel is not supported** (rejected by the driver): the C#
@@ -150,11 +167,8 @@ Tyrants / Innovation / Rebellion.
    gate/card instead of a button), update banner + version stamp endpoint,
    realtime signal (Supabase broadcast), in-game chat panel, hub identity
    sign-in (anon-first), reveal-at-game-over check.
-3. **Leaderboard**: hub identity → seat→playerId in `GameMeta` → report
-   results (`ranking` already populated by the adapter) → hub Glicko-2
-   ratings (framework `ratings-design.md`).
-4. **(Optional) AI seats** — port `PolicyController` for solo play /
-   filling empty seats (framework `ai-seats-design.md`).
+3. **List Impulse on the hub index** (`games-hub/games.json`) when you want it
+   publicly discoverable — one entry, mirrors the other games.
 
 ## Guardrails
 

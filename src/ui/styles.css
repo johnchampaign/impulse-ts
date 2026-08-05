@@ -113,3 +113,7 @@ select { width: auto; }
 .seat-setup li { margin: 0.35rem 0; }
 .seat-setup select { max-width: 26rem; }
 .ai-tag { color: var(--gold); }
+
+/* identity + leaderboard */
+.lobby-board { margin-top: 1.5rem; }
+.hint { color: var(--dim); font-size: 0.8rem; }

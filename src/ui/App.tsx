@@ -1,5 +1,7 @@
-import { useMemo, useState } from 'react';
-import { useGame, VmodSetupDialog } from 'digital-boardgame-framework/client';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Leaderboard, RankedStatus, SignInBar, useGame, useIdentity, VmodSetupDialog,
+} from 'digital-boardgame-framework/client';
 import { card } from '../engine/catalog';
 import {
   RACES,
@@ -8,12 +10,18 @@ import {
 import { AI_POLICY_LABELS } from '../ai/controllers';
 import { ArtProvider, MODULE_NAME, MODULE_URL, useArt } from './assets';
 import { CardChip, CardFace, RaceBadge } from './CardView';
-import { createGameOnServer, makeClient, type CreatedGame } from './client';
+import { claimSeat, createGameOnServer, makeClient, type CreatedGame } from './client';
 import { actionLabel, cardLabel, cardTitle } from './labels';
 import { MapView } from './MapView';
 
 declare const __BUILD__: string | undefined;
 const BUILD = typeof __BUILD__ === 'string' ? __BUILD__ : 'dev';
+
+// Hub slug for ratings; must match `ratings.game` in functions/api/[[path]].ts
+// (and the ai:impulse:<policy> identities the server gives AI seats).
+const RATINGS_GAME = 'impulse';
+const LEADERBOARD_HREF =
+  `https://games-hub-5vo.pages.dev/leaderboard.html?game=${RATINGS_GAME}`;
 
 function params(): { game: string | null; token: string | null } {
   const u = new URLSearchParams(location.search);
@@ -82,6 +90,7 @@ function ArtControls() {
 // ---------- lobby ----------
 
 function Lobby() {
+  const { identity } = useIdentity();
   const [numPlayers, setNumPlayers] = useState(2);
   // seat → AI policy key, or 'human'. Seat 1 is always the creator.
   const [seatKinds, setSeatKinds] = useState<Record<string, string>>({ P2: 'greedy' });
@@ -112,6 +121,10 @@ function Lobby() {
   return (
     <main className="lobby">
       <h1>IMPULSE</h1>
+      <SignInBar
+        leaderboardHref={LEADERBOARD_HREF}
+        signedInNote="— your ranked results count on the leaderboard."
+      />
       <p className="tagline">
         Async multiplayer port of Carl Chudyk's <em>Impulse</em> (2013).
         Create a game and send each player their invite link — turns are
@@ -195,6 +208,18 @@ function Lobby() {
           images are unpacked in your browser and cached there.
         </p>
         <ArtControls />
+      </div>
+      <div className="lobby-board">
+        <Leaderboard
+          game={RATINGS_GAME}
+          highlightPlayerId={identity?.playerId}
+          title="Leaderboard"
+        />
+        <p className="hint">
+          Finished games between two signed-in players are rated (Glicko-2).
+          Games against the AI are rated too — each AI personality has its own
+          rating.
+        </p>
       </div>
       <footer>
         <a href="https://github.com/johnchampaign/impulse-ts" rel="noreferrer">source</a> · build {BUILD}
@@ -319,8 +344,21 @@ function ReportDialog({ onClose, reportBug }: {
 
 function PlayPage({ gameId, token }: { gameId: string; token: string }) {
   const client = useMemo(() => makeClient(gameId, token), [gameId, token]);
-  const { view, yourTurn, gameOver, you, legalActions, submit, reportBug, loading, error, refresh } =
+  const { view, yourTurn, gameOver, you, legalActions, submit, reportBug, loading, error, refresh, ranked } =
     useGame<ImpulseState, ImpulseAction>(client);
+  const { identity } = useIdentity();
+
+  // Attach this browser's hub identity to the seat so a finished game can be
+  // rated. Once per (game, seat, identity); failures are silent by design —
+  // an unattributed seat still plays, it just isn't ranked.
+  const claimed = useRef<string>('');
+  useEffect(() => {
+    if (!identity) return;
+    const key = `${gameId}:${token}:${identity.playerId}`;
+    if (claimed.current === key) return;
+    claimed.current = key;
+    void claimSeat(gameId, token, identity.token);
+  }, [gameId, token, identity]);
   const [showReport, setShowReport] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -414,11 +452,17 @@ function PlayPage({ gameId, token }: { gameId: string; token: string }) {
           <div className="prompt">
             <h3>{gameOver ? 'Result' : yourTurn ? 'Your decision' : 'Waiting'}</h3>
             {gameOver && (
-              <p>
-                Final prestige:{' '}
-                {[...g.players].sort((a, b) => b.prestige - a.prestige)
-                  .map((p) => `${p.seat} ${p.prestige}`).join(' · ')}
-              </p>
+              <>
+                <p>
+                  Final prestige:{' '}
+                  {[...g.players].sort((a, b) => b.prestige - a.prestige)
+                    .map((p) => `${p.seat} ${p.prestige}`).join(' · ')}
+                </p>
+                {ranked && <RankedStatus ranked={ranked} />}
+                <p>
+                  <a href={LEADERBOARD_HREF} target="_blank" rel="noreferrer">🏆 Leaderboard</a>
+                </p>
+              </>
             )}
             {!gameOver && prompt && pendingSeat === you && <p className="prompt-text">{prompt.prompt}</p>}
             {!gameOver && prompt && pendingSeat !== you && (
