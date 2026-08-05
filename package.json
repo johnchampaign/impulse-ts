@@ -13,7 +13,7 @@
     "smoke": "npm run gen-cards && vite-node scripts/smoke-rollout.ts",
     "soak": "npm run gen-cards && vite-node scripts/soak.ts",
     "test": "npm run gen-cards && vitest run",
-    "deploy": "npm run build && wrangler pages deploy --project-name=impulse-ts",
+    "deploy": "npm run build && wrangler pages deploy --project-name=impulse-ts && echo \"\\nLive at https://impulse-ts.pages.dev (the hash URL above is just this deploy's snapshot)\"",
     "tournament": "npm run gen-cards && vite-node scripts/ai-tournament.ts",
     "ai-vs-random": "npm run gen-cards && vite-node scripts/ai-vs-random.ts",
     "probe-realtime": "vite-node scripts/probe-realtime.ts"

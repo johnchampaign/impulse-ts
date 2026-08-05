@@ -3,6 +3,19 @@
 Live at **https://impulse-ts.pages.dev** (Cloudflare Pages project
 `impulse-ts`, production branch `main`).
 
+## Which URL is the real one
+
+- **https://impulse-ts.pages.dev** — the permanent address. Share this; invite
+  links are built from it. It always points at the latest production deploy.
+- `https://<hash>.impulse-ts.pages.dev` — what `wrangler` prints after each
+  deploy. It's an immutable snapshot of that one deploy, useful for checking a
+  build before the apex catches up (the apex can lag ~a minute). Don't share it.
+
+A custom domain (e.g. `impulse.johnchampaign.com`) is possible — the Cloudflare
+account holds `johnchampaign.com` and `ragdollpublishing.com` — but was
+deliberately declined: `*.pages.dev` matches the other ten games, and the apex
+is already permanent.
+
 ## Architecture
 
 - **Client** (`src/`, `index.html`) — built by Vite to `dist/`. Currently a
