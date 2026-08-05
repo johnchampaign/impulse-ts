@@ -2,6 +2,7 @@
 // location, and choose one of the six to place face-up there." The default
 // home card is moved into hand so the player picks among all six; the pick
 // goes face-up at home. handlerState = the default card id.
+import { PROMPT } from '../prompts';
 import type { EffectHandler } from '../effects';
 import { log } from '../log';
 import { getPlayer, type SelectHandCardRequest } from '../types';
@@ -42,8 +43,7 @@ export const homePickHandler: EffectHandler = {
       legalCardIds: [...p.hand],
       allowNone: false,
       noneLabel: 'DONE',
-      prompt: `Pick one of your ${p.hand.length} cards to place face-up on Home (N${homeId}). ` +
-        `Default was #${nc.cardId}.`,
+      prompt: PROMPT.homePick(homeId, p.hand.length, nc.cardId),
     };
   },
 };

@@ -8,6 +8,7 @@
 //    a patrolled passage marks passageNode for transport destruction
 //  - a cruiser passage without battle destroys enemy transports on the
 //    traversed card (rulebook p.28)
+import { PROMPT } from '../prompts';
 import { battleStep, newBattle, resolveDefender, type BattleState } from '../battle';
 import { card } from '../catalog';
 import { log } from '../log';
@@ -102,7 +103,7 @@ export function walkPath(g: ImpulseState, ctx: EffectCtx, ms: MovementState): Wa
         legalCardIds: [...p.hand],
         allowNone: false,
         noneLabel: 'DONE',
-        prompt: `Exploring N${exploreNode}: place a card from your hand face-up.`,
+        prompt: PROMPT.exploring(exploreNode),
       };
       return { status: 'paused' };
     }
@@ -166,7 +167,9 @@ export function destroyEnemyTransportsOn(g: ImpulseState, mover: Seat, nodeId: n
 // score 1 + floor((gems of that color + arriving transports) / 2).
 // Display order: Red, Blue, Green, Yellow (deliberately NOT the CardColor
 // enum order — inherited from the C# UI).
-const CORE_COLOR_DISPLAY_ORDER: readonly CardColor[] = ['Red', 'Blue', 'Green', 'Yellow'];
+// Exported so the AI can score the colour options without parsing their
+// display strings (src/ai/policy.ts).
+export const CORE_COLOR_DISPLAY_ORDER: readonly CardColor[] = ['Red', 'Blue', 'Green', 'Yellow'];
 
 function gemsOf(g: ImpulseState, seat: Seat, color: CardColor): number {
   return getPlayer(g, seat).minerals

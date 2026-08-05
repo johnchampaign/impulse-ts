@@ -13,7 +13,9 @@
     "smoke": "npm run gen-cards && vite-node scripts/smoke-rollout.ts",
     "soak": "npm run gen-cards && vite-node scripts/soak.ts",
     "test": "npm run gen-cards && vitest run",
-    "deploy": "npm run build && wrangler pages deploy --project-name=impulse-ts"
+    "deploy": "npm run build && wrangler pages deploy --project-name=impulse-ts",
+    "tournament": "npm run gen-cards && vite-node scripts/ai-tournament.ts",
+    "ai-vs-random": "npm run gen-cards && vite-node scripts/ai-vs-random.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.107.0",

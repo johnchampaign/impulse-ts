@@ -17,6 +17,7 @@ import {
 } from 'digital-boardgame-framework/server';
 import { jsonCodec } from 'digital-boardgame-framework';
 import { createGame as newImpulseGame, impulseAdapter } from '../../src/adapter/impulseAdapter';
+import { impulseAiControllers } from '../../src/ai/controllers';
 import { seatOf, type ImpulseAction, type ImpulseState, type Seat } from '../../src/engine/types';
 
 interface Env {
@@ -57,6 +58,7 @@ function server(env: Env, origin: string) {
     adapter: impulseAdapter,
     codec: jsonCodec<ImpulseState>(),
     store: new SupabaseStore(supabase),
+    aiControllers: impulseAiControllers,   // server-driven AI seats (rated)
     notifier: new NoopNotifier(),
     playBeacon: { appId: 'impulse' },
     gameUrl: (gameId, token) =>
@@ -189,19 +191,38 @@ export const onRequest = async ({ request, env }: RouteCtx): Promise<Response> =
       return await uploadLog(env, request);
     }
 
-    // POST /api/games — create
+    // POST /api/games — create. `ai` maps seats to AI policy keys, e.g.
+    // {"numPlayers":2,"ai":{"P2":"greedy"}} for one human vs one AI.
     if (path === '/games' && request.method === 'POST') {
-      const body = await readJson<{ numPlayers: number; seed?: number }>(request);
+      const body = await readJson<{
+        numPlayers: number;
+        seed?: number;
+        ai?: Partial<Record<Seat, string>>;
+      }>(request);
       const numPlayers = Number(body.numPlayers);
       if (!Number.isInteger(numPlayers) || numPlayers < 2 || numPlayers > 6) {
         return bad('numPlayers must be 2..6');
       }
       const seed = Number.isInteger(body.seed) ? Number(body.seed) : randomSeed();
       const players: Seat[] = Array.from({ length: numPlayers }, (_, i) => seatOf(i + 1));
+
+      const ai: Partial<Record<Seat, string>> = {};
+      for (const [seat, policy] of Object.entries(body.ai ?? {})) {
+        if (!players.includes(seat)) return bad(`unknown seat ${seat}`, 422);
+        if (typeof policy !== 'string' || !(policy in impulseAiControllers)) {
+          return bad(`unknown AI policy ${String(policy)}; ` +
+            `expected one of ${Object.keys(impulseAiControllers).join(', ')}`, 422);
+        }
+        ai[seat] = policy;
+      }
+      // Leave at least one human seat, or nobody could ever move the game on.
+      if (Object.keys(ai).length >= numPlayers) return bad('at least one seat must be human', 422);
+
       const initialState = newImpulseGame({ playerCount: numPlayers, seed });
       const out = await server(env, originOf(env, request)).createGame({
         initialState,
         players,
+        ...(Object.keys(ai).length > 0 ? { ai } : {}),
       });
       return json(out);
     }

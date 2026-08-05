@@ -3,6 +3,7 @@
 // ctx.pendingChoice; handlers own a BattleState (plain JSON, inside their
 // handlerState) and call battleStep each execute until it returns true.
 // Ported from C# BattleResolver + DefenderChoice.
+import { PROMPT } from './prompts';
 import { card } from './catalog';
 import { log, logInfo } from './log';
 import { destroyShipAt, ensureDeckCanDraw, moveShip } from './mechanics';
@@ -159,8 +160,7 @@ function promptReinforce(g: ImpulseState, ctx: EffectCtx, bs: BattleState, defen
     legalCardIds: hand,
     allowNone: true,
     noneLabel: 'PASS — no reinforcement',
-    prompt: `⚔ ${defender ? 'DEFENDER' : 'ATTACKER'} ${who}: commit any card face-down as a ` +
-      `reinforcement (bluffs return to hand on reveal), or PASS — placing zero cards is legal (rulebook p.34).`,
+    prompt: PROMPT.battleReinforce(who, defender),
   };
   return false;
 }

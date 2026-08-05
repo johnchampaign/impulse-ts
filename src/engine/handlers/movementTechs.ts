@@ -1,6 +1,7 @@
 // Movement-dependent Basic Unique techs: Ariek (fleet must end on/patrolling
 // the Sector Core) and Herculese (cruiser through an unexplored card).
 // Ported from C# BasicUniqueTechHandlers.
+import { PROMPT } from '../prompts';
 import type { EffectHandler, EffectRegistry } from '../effects';
 import { logInfo } from '../log';
 import { gatesAt } from '../map';
@@ -146,7 +147,7 @@ const ariekHandler: EffectHandler = {
           type: 'selectFromOptions',
           seat: ctx.seat,
           options: sectorCoreColorOptions(g, ctx.seat, st.ms.chosenCount),
-          prompt: `Sector Core: choose mineral color for boost (+${st.ms.chosenCount} arriving transport(s)).`,
+          prompt: PROMPT.sectorCoreColor(st.ms.chosenCount),
         };
         st.stage = 'awaitingSectorCoreColor';
         return;

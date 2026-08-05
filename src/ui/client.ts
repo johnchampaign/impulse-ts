@@ -38,15 +38,23 @@ export interface CreatedGame {
   invites: Record<string, string>;
 }
 
-export async function createGameOnServer(numPlayers: number): Promise<CreatedGame> {
+/** `ai` maps seat → AI policy key; omitted seats are human. */
+export async function createGameOnServer(
+  numPlayers: number,
+  ai: Record<string, string> = {},
+): Promise<CreatedGame> {
   return withDeadline(async (signal) => {
     const r = await fetch('/api/games', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ numPlayers }),
+      body: JSON.stringify({ numPlayers, ...(Object.keys(ai).length > 0 ? { ai } : {}) }),
       signal,
     });
-    if (!r.ok) throw new Error(`create failed: HTTP ${r.status}`);
+    if (!r.ok) {
+      let msg = `HTTP ${r.status}`;
+      try { msg = ((await r.json()) as { error?: string }).error ?? msg; } catch { /* keep */ }
+      throw new Error(`create failed: ${msg}`);
+    }
     return r.json() as Promise<CreatedGame>;
   }, 30_000, 'Creating the game');
 }

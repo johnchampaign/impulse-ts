@@ -8,6 +8,7 @@
 //    finish, bonus gems accumulate across converging transport fleets)
 //  - transports ending on a face-up card they didn't start on activate it,
 //    arriving transports counting as bonus matching gems (p.27/p.29)
+import { PROMPT } from '../prompts';
 import { boostFromSource, sourceCardId } from '../boost';
 import { card } from '../catalog';
 import type { EffectHandler, EffectRegistry } from '../effects';
@@ -334,7 +335,7 @@ export class CommandHandler implements EffectHandler {
         type: 'selectFromOptions',
         seat: ctx.seat,
         options: sectorCoreColorOptions(g, ctx.seat, st.ms.chosenCount),
-        prompt: `Sector Core: choose mineral color for boost (+${st.ms.chosenCount} arriving transports).`,
+        prompt: PROMPT.sectorCoreColor(st.ms.chosenCount),
       };
       st.stage = 'awaitingSectorCoreColor';
       return;

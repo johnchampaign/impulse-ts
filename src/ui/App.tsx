@@ -5,6 +5,7 @@ import {
   RACES,
   type ImpulseAction, type ImpulseState, type PlayerState, type Tech,
 } from '../engine/types';
+import { AI_POLICY_LABELS } from '../ai/controllers';
 import { ArtProvider, MODULE_NAME, MODULE_URL, useArt } from './assets';
 import { CardChip, CardFace, RaceBadge } from './CardView';
 import { createGameOnServer, makeClient, type CreatedGame } from './client';
@@ -82,15 +83,25 @@ function ArtControls() {
 
 function Lobby() {
   const [numPlayers, setNumPlayers] = useState(2);
+  // seat → AI policy key, or 'human'. Seat 1 is always the creator.
+  const [seatKinds, setSeatKinds] = useState<Record<string, string>>({ P2: 'greedy' });
   const [created, setCreated] = useState<CreatedGame | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const seats = Array.from({ length: numPlayers }, (_, i) => `P${i + 1}`);
+  const aiSeats = Object.fromEntries(
+    seats.slice(1)
+      .filter((s) => (seatKinds[s] ?? 'human') !== 'human')
+      .map((s) => [s, seatKinds[s]!]),
+  );
+  const humanCount = numPlayers - Object.keys(aiSeats).length;
 
   const create = async () => {
     setBusy(true);
     setError(null);
     try {
-      setCreated(await createGameOnServer(numPlayers));
+      setCreated(await createGameOnServer(numPlayers, aiSeats));
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -107,28 +118,72 @@ function Lobby() {
         asynchronous, come back whenever.
       </p>
       {!created && (
-        <div className="lobby-form">
-          <label>
-            Players:{' '}
-            <select value={numPlayers} onChange={(e) => setNumPlayers(Number(e.target.value))}>
-              {[2, 3, 4, 5, 6].map((n) => <option key={n} value={n}>{n}</option>)}
-            </select>
-          </label>
-          <button onClick={create} disabled={busy}>{busy ? 'Creating…' : 'Create game'}</button>
-        </div>
+        <>
+          <div className="lobby-form">
+            <label>
+              Players:{' '}
+              <select value={numPlayers} onChange={(e) => setNumPlayers(Number(e.target.value))}>
+                {[2, 3, 4, 5, 6].map((n) => <option key={n} value={n}>{n}</option>)}
+              </select>
+            </label>
+            <button onClick={create} disabled={busy}>{busy ? 'Creating…' : 'Create game'}</button>
+          </div>
+          <div className="seat-setup">
+            <h2>Seats</h2>
+            <p>
+              Seat P1 is you. Set any other seat to an AI opponent, or leave it human
+              and send that player their invite link.
+            </p>
+            <ul>
+              {seats.map((seat, i) => (
+                <li key={seat}>
+                  <strong>{seat}</strong>{i === 0 ? ' — you' : (
+                    <>
+                      {' '}
+                      <select
+                        value={seatKinds[seat] ?? 'human'}
+                        onChange={(e) => setSeatKinds({ ...seatKinds, [seat]: e.target.value })}
+                      >
+                        <option value="human">Human (invite link)</option>
+                        {Object.entries(AI_POLICY_LABELS).map(([key, label]) => (
+                          <option key={key} value={key}>🤖 {label}</option>
+                        ))}
+                      </select>
+                    </>
+                  )}
+                </li>
+              ))}
+            </ul>
+            {humanCount < 1 && <p className="error">At least one seat must be human.</p>}
+          </div>
+        </>
       )}
       {error && <p className="error">{error}</p>}
       {created && (
         <div className="invites">
-          <h2>Game created — share these links</h2>
-          <p>Each link is one seat's credential. Keep yours, send the rest.</p>
+          <h2>Game created</h2>
+          <p>
+            Open your own link to play. Send a link to each other human;
+            AI seats are already being played by the server.
+          </p>
           <ul>
-            {Object.entries(created.invites).map(([seat, url]) => (
-              <li key={seat}>
-                <strong>{seat}:</strong> <a href={url}>{url}</a>{' '}
-                <button onClick={() => navigator.clipboard?.writeText(url)}>copy</button>
-              </li>
-            ))}
+            {Object.entries(created.invites).map(([seat, url], i) => {
+              const policy = aiSeats[seat];
+              if (policy) {
+                return (
+                  <li key={seat}>
+                    <strong>{seat}:</strong>{' '}
+                    <span className="ai-tag">🤖 {policy} — played by the server</span>
+                  </li>
+                );
+              }
+              return (
+                <li key={seat}>
+                  <strong>{seat}{i === 0 ? ' (you)' : ''}:</strong> <a href={url}>{url}</a>{' '}
+                  <button onClick={() => navigator.clipboard?.writeText(url)}>copy</button>
+                </li>
+              );
+            })}
           </ul>
         </div>
       )}

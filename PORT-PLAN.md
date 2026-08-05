@@ -104,6 +104,34 @@ Tyrants / Innovation / Rebellion.
 - The same option exists in the C# desktop app (`../Impulse`, branch
   `card-art`) so both versions can use module art.
 
+## Done — AI opponent ✅
+
+- `src/ai/policy.ts` ports the C# `PolicyController` (five telemetry-tuned
+  personalities: greedy / warrior / corerush / munchkin / refine), including
+  its state-aware card scoring, core-gate stickiness, activation-combo
+  lookahead, battle-safety scoring, exploration place-best/place-worst, and
+  sabotage target choice. Weight-justifying comments carried over verbatim.
+- `src/ai/controllers.ts` exposes each policy as a framework
+  `PlayerController`, wired as `aiControllers` so the **server** drives AI
+  seats (the human's client never picks the AI's moves) and each earns its own
+  leaderboard identity `ai:impulse:<policy>`.
+- Lobby: per-seat Human/AI dropdown; the API validates policy names and
+  refuses an all-AI game. Invite list marks AI seats instead of offering a
+  useless link.
+- Three deliberate improvements over the C# original, each labelled in the
+  source: commit a *matching* battle reinforcement rather than a random bluff;
+  choose the Sector Core mineral colour by gems held rather than at random;
+  place the best card on the home sector (the C# answered both at random).
+- Tests (`tests/ai.test.ts`, 14): legality for every policy at every player
+  count, determinism, prompt-marker coupling, the three value decisions, and a
+  strength floor vs random play. `npm run tournament` / `npm run ai-vs-random`
+  are the self-play harnesses (C# HeadlessTournament equivalents).
+- Measured: every policy beats uniform random ~100% of 50 games. Verified
+  live against production — the server played a full AI turn between each of
+  the human's moves.
+- Prompt text the AI keys off now lives in `src/engine/prompts.ts` so
+  rewording a prompt is a compile-time concern, not a silent AI regression.
+
 ## Known gaps
 
 - **Cancel is not supported** (rejected by the driver): the C#

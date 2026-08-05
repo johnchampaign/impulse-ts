@@ -2,6 +2,7 @@
 // Command one fleet for one move OR Build one ship at home." The Command
 // sub-action has full path semantics — exploration, battle, activation.
 // Ported from C# BasicCommonTechHandler.
+import { PROMPT } from '../prompts';
 import { sourceCardId } from '../boost';
 import { card } from '../catalog';
 import type { EffectHandler, EffectRegistry } from '../effects';
@@ -248,7 +249,7 @@ export class BasicCommonTechHandler implements EffectHandler {
         type: 'selectFromOptions',
         seat: ctx.seat,
         options: sectorCoreColorOptions(g, ctx.seat, st.ms.chosenCount),
-        prompt: `Sector Core: choose mineral color for boost (+${st.ms.chosenCount} arriving transports).`,
+        prompt: PROMPT.sectorCoreColor(st.ms.chosenCount),
       };
       st.stage = 'awaitingSectorCoreColor';
       return;
