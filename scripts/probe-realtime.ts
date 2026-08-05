@@ -46,7 +46,8 @@ await new Promise((r) => setTimeout(r, 6000));
 unsubscribe();
 
 if (signals === 0) {
-  console.error('FAIL: no realtime signal arrived (clients would fall back to ~10s polling)');
-  process.exit(1);
+  // Throw rather than process.exit: keeps the script free of node typings and
+  // still gives a non-zero exit.
+  throw new Error('no realtime signal arrived — clients would fall back to ~10s polling');
 }
 console.log(`PASS: ${signals} signal(s) received — opponents' moves arrive instantly`);

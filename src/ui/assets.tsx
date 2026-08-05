@@ -21,9 +21,11 @@ import {
 import { useVmodAssets, type VmodAssetsApi } from 'digital-boardgame-framework/client';
 import { CARDS } from '../engine/catalog';
 
-/** Official module on the VASSAL library (the file the dialog links to). */
+/** Official module page on the VASSAL library (the dialog links players here
+ *  to download it). Confirmed by the maintainer; the old /wiki/Module:Impulse
+ *  form only 301-redirects. */
 export const MODULE_NAME = 'Impulse';
-export const MODULE_URL = 'https://vassalengine.org/wiki/Module:Impulse';
+export const MODULE_URL = 'https://vassalengine.org/library/projects/Impulse';
 
 // Logical path → entry name inside the .vmod zip. Card art is `c<Card.Id>.jpg`
 // (verified: the 108 ids in data/cards.tsv match the 108 c*.jpg entries
