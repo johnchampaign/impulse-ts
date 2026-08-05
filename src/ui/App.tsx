@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Leaderboard, RankedStatus, SignInBar, useGame, useIdentity, VmodSetupDialog,
+  ChatPanel, Leaderboard, RankedStatus, SignInBar, UpdateBanner,
+  useGame, useIdentity, VmodSetupDialog,
 } from 'digital-boardgame-framework/client';
 import { card } from '../engine/catalog';
 import {
@@ -10,12 +11,17 @@ import {
 import { AI_POLICY_LABELS } from '../ai/controllers';
 import { ArtProvider, MODULE_NAME, MODULE_URL, useArt } from './assets';
 import { CardChip, CardFace, RaceBadge } from './CardView';
-import { claimSeat, createGameOnServer, makeClient, type CreatedGame } from './client';
+import { claimSeat, createGameOnServer, makeChatClient, makeClient, type CreatedGame } from './client';
+import { fetchRealtimeConfig, realtimeSubscribe, type RealtimeConfig } from './realtime';
 import { actionLabel, cardLabel, cardTitle } from './labels';
 import { MapView } from './MapView';
 
 declare const __BUILD__: string | undefined;
+declare const __DBF_BUILD_ID__: string | undefined;
 const BUILD = typeof __BUILD__ === 'string' ? __BUILD__ : 'dev';
+// Injected by the framework's versionStamp Vite plugin; paired with the
+// version.json it writes, this is what tells a stale tab a deploy happened.
+const BUILD_ID = typeof __DBF_BUILD_ID__ === 'string' ? __DBF_BUILD_ID__ : 'dev';
 
 // Hub slug for ratings; must match `ratings.game` in functions/api/[[path]].ts
 // (and the ai:impulse:<policy> identities the server gives AI seats).
@@ -33,6 +39,7 @@ export function App() {
   return (
     <ArtProvider>
       {game && token ? <PlayPage gameId={game} token={token} /> : <Lobby />}
+      <UpdateBanner currentBuild={BUILD_ID} />
     </ArtProvider>
   );
 }
@@ -344,8 +351,15 @@ function ReportDialog({ onClose, reportBug }: {
 
 function PlayPage({ gameId, token }: { gameId: string; token: string }) {
   const client = useMemo(() => makeClient(gameId, token), [gameId, token]);
+  const chat = useMemo(() => makeChatClient(gameId, token), [gameId, token]);
+
+  // Realtime push when the server offers it; otherwise useGame just polls.
+  const [rt, setRt] = useState<RealtimeConfig | null>(null);
+  useEffect(() => { void fetchRealtimeConfig().then(setRt); }, []);
+  const subscribe = useMemo(() => realtimeSubscribe(rt, gameId), [rt, gameId]);
+
   const { view, yourTurn, gameOver, you, legalActions, submit, reportBug, loading, error, refresh, ranked } =
-    useGame<ImpulseState, ImpulseAction>(client);
+    useGame<ImpulseState, ImpulseAction>(client, subscribe ? { subscribe } : {});
   const { identity } = useIdentity();
 
   // Attach this browser's hub identity to the seat so a finished game can be
@@ -479,6 +493,12 @@ function PlayPage({ gameId, token }: { gameId: string; token: string }) {
             )}
             {submitError && <p className="error">{submitError}</p>}
           </div>
+
+          {you && (
+            <div className="chat-wrap">
+              <ChatPanel client={chat} you={you} title="Table talk" />
+            </div>
+          )}
 
           <div className="log">
             <h3>Log</h3>

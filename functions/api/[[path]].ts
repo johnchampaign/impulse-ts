@@ -13,7 +13,8 @@
 //   POST  /api/upload-log               body: state+log → GitHub issue
 import { createClient } from '@supabase/supabase-js';
 import {
-  GameServer, SupabaseStore, NoopNotifier, verifyIdentityToken, type Jwks,
+  GameServer, SupabaseStore, SupabaseBroadcaster, NoopNotifier,
+  verifyIdentityToken, type Jwks,
 } from 'digital-boardgame-framework/server';
 import { jsonCodec } from 'digital-boardgame-framework';
 import { createGame as newImpulseGame, impulseAdapter } from '../../src/adapter/impulseAdapter';
@@ -26,6 +27,11 @@ interface Env {
    *  project's secret works everywhere. Never exposed to the client. */
   SUPABASE_SERVICE_ROLE_KEY: string;
   PUBLIC_ORIGIN?: string;
+  /** PUBLIC anon key for the same Supabase project. Optional: when set, the
+   *  server broadcasts move/chat signals and hands the key to clients via
+   *  GET /api/realtime so they get instant updates instead of ~10s polling.
+   *  Safe in browsers — RLS denies anon on every table. */
+  SUPABASE_ANON_KEY?: string;
   /** PAT with issues:write on the reports repo (optional; 503 without). */
   GITHUB_TOKEN?: string;
   /** owner/repo for bug-report issues. Defaults to johnchampaign/impulse-ts-reports. */
@@ -59,6 +65,17 @@ function server(env: Env, origin: string) {
     codec: jsonCodec<ImpulseState>(),
     store: new SupabaseStore(supabase),
     aiControllers: impulseAiControllers,   // server-driven AI seats (rated)
+    // Signal-only realtime: broadcasts "something changed"; clients re-fetch
+    // their own redacted view. Only wired when the public anon key exists,
+    // since a client with no key can't subscribe anyway.
+    ...(env.SUPABASE_ANON_KEY
+      ? {
+          broadcaster: new SupabaseBroadcaster({
+            supabaseUrl: env.SUPABASE_URL,
+            serviceKey: env.SUPABASE_SERVICE_ROLE_KEY,
+          }),
+        }
+      : {}),
     notifier: new NoopNotifier(),
     playBeacon: { appId: 'impulse' },
     gameUrl: (gameId, token) =>
@@ -189,6 +206,15 @@ export const onRequest = async ({ request, env }: RouteCtx): Promise<Response> =
   try {
     if (path === '/upload-log' && request.method === 'POST') {
       return await uploadLog(env, request);
+    }
+
+    // GET /api/realtime — hands the client the PUBLIC anon key so it can
+    // subscribe to move/chat signals. Returns {enabled:false} when unset, and
+    // the client falls back to polling. Never exposes the service-role key.
+    if (path === '/realtime' && request.method === 'GET') {
+      return env.SUPABASE_ANON_KEY
+        ? json({ enabled: true, supabaseUrl: env.SUPABASE_URL, anonKey: env.SUPABASE_ANON_KEY })
+        : json({ enabled: false });
     }
 
     // POST /api/games — create. `ai` maps seats to AI policy keys, e.g.

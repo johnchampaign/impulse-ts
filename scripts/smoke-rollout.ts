@@ -115,6 +115,25 @@ for (let game = 0; game < GAMES; game++) {
       if (encoded !== reencoded) {
         throw new Error(`game ${game} step ${steps}: serialization round-trip mismatch`);
       }
+      // Redaction must hold WHILE the game is live (it is deliberately lifted
+      // at game over so both clients can render the same final position).
+      // The move just applied may itself have ended the game — this periodic
+      // block runs before the loop condition is re-tested — so skip then and
+      // let the post-loop reveal assertion cover it.
+      for (const viewer of state.isGameOver ? [] : [null, ...state.players.map((p) => p.seat)]) {
+        const view = impulseAdapter.viewFor(state, viewer);
+        if (view.deck.some((id) => id !== 0)) {
+          throw new Error(`game ${game} step ${steps}: leak — deck ids visible to ${viewer ?? 'spectator'}`);
+        }
+        if (view.rngState !== 0) {
+          throw new Error(`game ${game} step ${steps}: leak — rng state visible`);
+        }
+        for (const p of view.players) {
+          if (p.seat !== viewer && p.hand.some((id) => id !== 0)) {
+            throw new Error(`game ${game} step ${steps}: leak — ${p.seat} hand visible to ${viewer ?? 'spectator'}`);
+          }
+        }
+      }
     }
   }
 
@@ -138,17 +157,20 @@ for (let game = 0; game < GAMES; game++) {
       `(prestige ${state.players.map((p) => `${p.seat}=${p.prestige}`).join(' ')})`);
   }
 
-  // Leak check: no non-viewer view may contain another player's hand ids or
-  // real deck ids.
+  // At game over every viewer sees the same, fully-revealed position — so the
+  // two clients can't disagree about the final board, and players get a
+  // post-mortem. (Redaction while live is asserted mid-game above.)
   for (const viewer of [null, ...state.players.map((p) => p.seat)]) {
     const view = impulseAdapter.viewFor(state, viewer);
-    if (view.deck.some((id) => id !== 0)) throw new Error('leak: deck ids visible');
     for (const p of view.players) {
-      if (p.seat !== viewer && p.hand.some((id) => id !== 0)) {
-        throw new Error(`leak: ${p.seat} hand visible to ${viewer ?? 'spectator'}`);
+      const real = state.players.find((q) => q.seat === p.seat)!;
+      if (JSON.stringify(p.hand) !== JSON.stringify(real.hand)) {
+        throw new Error(`game ${game}: ${p.seat} hand not revealed at game over to ${viewer ?? 'spectator'}`);
       }
     }
-    if (view.rngState !== 0) throw new Error('leak: rng state visible');
+    if (JSON.stringify(view.deck) !== JSON.stringify(state.deck)) {
+      throw new Error(`game ${game}: deck not revealed at game over`);
+    }
   }
 }
 

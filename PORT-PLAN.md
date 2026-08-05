@@ -149,6 +149,24 @@ Tyrants / Innovation / Rebellion.
   is needed for the in-game board. Listing Impulse on the hub index
   (`games-hub/games.json`) is a separate, optional one-line change.
 
+## Done — standard kit: update banner, chat, reveal-at-game-over ✅
+
+- **Update banner**: framework `versionStamp()` Vite plugin stamps a build id
+  and writes `dist/version.json`; `<UpdateBanner>` polls it and offers a reload
+  when a new build is live (iOS Safari caches an SPA indefinitely otherwise).
+- **In-game chat**: `<ChatPanel>` over the existing `/chat` routes; the server
+  stamps the sender's seat from the token so nobody can post as someone else.
+  Verified live: message stored and echoed back.
+- **Reveal at game over**: `viewFor` now returns the full state once the game is
+  decided (framework integration-guide gotcha #9) — otherwise the two clients
+  render different end positions and players lose the post-mortem. The smoke
+  script now asserts BOTH halves: redaction while live, full reveal after.
+- **Realtime push** is wired but *inactive*: the server broadcasts move/chat
+  signals and `GET /api/realtime` hands the client the config, both gated on a
+  `SUPABASE_ANON_KEY` Pages secret that isn't set yet. Nothing is hardcoded, so
+  adding that one secret turns instant updates on with no code change or
+  rebuild; until then `useGame` polls (~10s) and play is unaffected.
+
 ## Known gaps
 
 - **Cancel is not supported** (rejected by the driver): the C#

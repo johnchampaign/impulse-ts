@@ -65,6 +65,13 @@ export const impulseAdapter: GameAdapter<ImpulseState, ImpulseAction, Seat> = {
   },
 
   viewFor(state, viewer) {
+    // Once the game is decided, reveal everything: hands, the remaining deck,
+    // and unexplored sectors. Keeping them hidden after the fact means each
+    // client renders a different end state (framework integration-guide gotcha
+    // #9) and denies players the post-mortem — who was holding what, what the
+    // unexplored corner of the map actually was.
+    if (state.isGameOver) return structuredClone(state);
+
     const v = structuredClone(state);
     // RNG state would let a client predict shuffles and draws.
     v.rngState = 0;

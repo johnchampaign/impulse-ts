@@ -117,3 +117,6 @@ select { width: auto; }
 /* identity + leaderboard */
 .lobby-board { margin-top: 1.5rem; }
 .hint { color: var(--dim); font-size: 0.8rem; }
+
+/* chat */
+.chat-wrap { margin-bottom: 0.5rem; }

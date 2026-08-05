@@ -1,5 +1,6 @@
 import { createReadStream, existsSync } from 'node:fs';
 import react from '@vitejs/plugin-react';
+import { versionStamp } from 'digital-boardgame-framework/vite';
 import { defineConfig, type Plugin } from 'vite';
 
 // Dev-server-only: serve a local .vmod at /dev-only/module.vmod so an
@@ -23,7 +24,10 @@ function devVmodRoute(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [react(), devVmodRoute()],
+  // versionStamp injects __DBF_BUILD_ID__ and writes dist/version.json, which
+  // the in-app update banner polls — iOS Safari caches an SPA indefinitely
+  // otherwise, so players would keep running an old build after a deploy.
+  plugins: [react(), versionStamp(), devVmodRoute()],
   define: {
     // Build stamp for the footer + bug reports. Vite injects at build time —
     // the ENGINE never reads it (no Date.now in src/engine).

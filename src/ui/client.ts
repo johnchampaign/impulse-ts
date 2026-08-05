@@ -2,7 +2,8 @@
 // withDeadline (framework contract: a hung request must not freeze the
 // session); reports via submitReportViaHttp (never-silent contract).
 import {
-  submitReportViaHttp, withDeadline, type GameClientApi,
+  submitReportViaHttp, withDeadline,
+  type ChatMessage, type GameClientApi, type MessagingClientApi,
 } from 'digital-boardgame-framework/client';
 import type { ImpulseAction, ImpulseState } from '../engine/types';
 
@@ -30,6 +31,28 @@ export function makeClient(gameId: string, token: string): GameClientApi<Impulse
     legalActions: () => withDeadline((signal) =>
       fetch(`${base}/legal${q}`, { signal }).then(readJson), 20_000, 'Loading moves'),
     report: (body) => submitReportViaHttp(`${base}/report${q}`, body),
+  };
+}
+
+/** Chat transport for <ChatPanel>. The server stamps the sender's seat from
+ *  the token, so a client can't post as somebody else. */
+export function makeChatClient(gameId: string, token: string): MessagingClientApi {
+  const base = `/api/games/${encodeURIComponent(gameId)}/chat`;
+  const q = `?token=${encodeURIComponent(token)}`;
+  const readJson = async (r: Response): Promise<ChatMessage[]> => {
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return r.json() as Promise<ChatMessage[]>;
+  };
+  return {
+    listMessages: () => withDeadline((signal) =>
+      fetch(`${base}${q}`, { signal }).then(readJson), 20_000, 'Loading chat'),
+    postMessage: (body) => withDeadline((signal) =>
+      fetch(`${base}${q}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ body }),
+        signal,
+      }).then(readJson), 20_000, 'Sending'),
   };
 }
 
