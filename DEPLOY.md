@@ -20,6 +20,15 @@ Already set as encrypted secrets on the production environment:
 
 - `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` — shared games project.
 - `RATINGS_INGEST_KEY` — hub ranked-play ingest secret.
+- `SUPABASE_ANON_KEY` — the project's PUBLIC anon key, enabling realtime push.
+  The server broadcasts move/chat signals and serves this key to clients via
+  `GET /api/realtime`; without it clients fall back to ~10s polling. Safe in
+  browsers (RLS denies anon on every table). Verify with
+  `npx vite-node scripts/probe-realtime.ts`.
+
+Note: Pages applies env-var changes on the **next deployment**, and the apex can
+serve the previous deployment for up to a minute afterwards — so re-check rather
+than concluding a new secret didn't take.
 
 Optional, not yet set:
 

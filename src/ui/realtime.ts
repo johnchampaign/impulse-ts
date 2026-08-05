@@ -4,14 +4,14 @@
 //
 // The client needs the Supabase project's PUBLIC anon key. That key is designed
 // to ship in browsers (the schema's RLS denies anon on every table; only the
-// server's service-role key can read or write), but it isn't in this repo — so
-// the SERVER hands it to us from its own env at runtime (GET /api/realtime).
-// Consequences: nothing project-specific is hardcoded or committed here, and
-// turning realtime on is one Pages secret (SUPABASE_ANON_KEY) with no code
-// change or client rebuild.
+// server's service-role key can read or write), but it isn't committed here — the
+// SERVER hands it over from its own env at runtime (GET /api/realtime). So
+// nothing project-specific lives in this repo, and the feature is controlled by
+// one Pages secret (SUPABASE_ANON_KEY) rather than a rebuild.
 //
-// Until that secret exists the endpoint reports disabled and useGame falls back
-// to polling — fully playable, just up to ~10s later.
+// Enabled in production. If the secret is ever missing the endpoint reports
+// disabled and useGame falls back to polling — fully playable, just up to ~10s
+// later. `scripts/probe-realtime.ts` verifies the live path.
 import { subscribeSupabaseRealtime } from 'digital-boardgame-framework/client/realtime';
 import { withDeadline } from 'digital-boardgame-framework/client';
 

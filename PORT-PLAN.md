@@ -161,11 +161,12 @@ Tyrants / Innovation / Rebellion.
   decided (framework integration-guide gotcha #9) — otherwise the two clients
   render different end positions and players lose the post-mortem. The smoke
   script now asserts BOTH halves: redaction while live, full reveal after.
-- **Realtime push** is wired but *inactive*: the server broadcasts move/chat
-  signals and `GET /api/realtime` hands the client the config, both gated on a
-  `SUPABASE_ANON_KEY` Pages secret that isn't set yet. Nothing is hardcoded, so
-  adding that one secret turns instant updates on with no code change or
-  rebuild; until then `useGame` polls (~10s) and play is unaffected.
+- **Realtime push: LIVE.** The server broadcasts signal-only move/chat events
+  and serves the public anon key via `GET /api/realtime`, so opponents' moves
+  appear immediately instead of on a ~10s poll. Nothing project-specific is
+  committed — the key is a Pages secret (`SUPABASE_ANON_KEY`, taken from the
+  same shared Supabase project the other games use). Verified end to end by
+  `scripts/probe-realtime.ts`: subscribe → move → push received.
 
 ## Known gaps
 
