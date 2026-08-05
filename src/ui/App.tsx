@@ -412,6 +412,15 @@ function PlayPage({ gameId, token }: { gameId: string; token: string }) {
 
   return (
     <main className="play">
+      {/* Players arrive by invite link and never see the lobby, so the sign-in
+          affordance has to live here too — otherwise a seat stays a guest for
+          the whole game. Signing in mid-game re-claims the seat (the effect
+          above keys on identity.playerId, and the server overwrites), so the
+          result still lands on the leaderboard under the account. */}
+      <SignInBar
+        leaderboardHref={LEADERBOARD_HREF}
+        signedInNote="— this game will be rated."
+      />
       <header>
         <h1>IMPULSE</h1>
         <span>turn {g.turn} · phase <strong>{g.phase}</strong> · active {g.activeSeat}</span>

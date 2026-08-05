@@ -152,6 +152,13 @@ Tyrants / Innovation / Rebellion.
   it just isn't rated).
 - `<Leaderboard game="impulse">` in the lobby, `<RankedStatus>` + a leaderboard
   link on the game-over panel.
+- Sign-in appears on the **play page as well as the lobby**: players arrive by
+  invite link and never see the lobby, so without it a seat stayed a guest for
+  the whole game. Signing in mid-game re-claims the seat (the claim effect keys
+  on `identity.playerId`; `GameServer.claimSeat` overwrites), so the result is
+  still rated under the account. Verified: the SSO round-trip preserves
+  `?game=&token=` and carries the guest token forward, so you come back to your
+  game with your guest history migrated.
 - Verified end to end against production: anon identity → claim → full game vs
   the AI → server reported `{recorded: true}` → the hub leaderboard shows both
   players with Glicko-2 ratings (AI 1662, human 1338, both provisional).
