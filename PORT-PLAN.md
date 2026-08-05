@@ -66,6 +66,17 @@ Tyrants / Innovation / Rebellion.
 - **All 47 effect families registered — the setup allowlist now admits the
   full 108-card deck.** Smoke: 30/30 games decided, avg ~22 turns.
 
+## Done — card art (optional VASSAL images) ✅
+
+- Players choose between the built-in text UI and real card art loaded from
+  their own copy of the Impulse VASSAL module; a persisted preference, not a
+  fallback. Framework drop-in (`useVmodAssets` + `VmodSetupDialog`), cached
+  in IndexedDB, `?art=0/1` override. `src/ui/assets.tsx` + `CardView.tsx`.
+- This repo and the deployed build ship no art, and no public/ art path
+  exists, so no build configuration can bake it in (`*.vmod` gitignored too).
+- The same option exists in the C# desktop app (`../Impulse`, branch
+  `card-art`) so both versions can use module art.
+
 ## Known gaps
 
 - **Cancel is not supported** (rejected by the driver): the C#
@@ -110,8 +121,7 @@ Tyrants / Innovation / Rebellion.
 2. **UI polish + rest of the standard kit**: map-click affordances (click a
    gate/card instead of a button), update banner + version stamp endpoint,
    realtime signal (Supabase broadcast), in-game chat panel, hub identity
-   sign-in (anon-first), `.vmod` bring-your-own-art drop-in
-   (framework `vassal-assets.md`), reveal-at-game-over check.
+   sign-in (anon-first), reveal-at-game-over check.
 3. **Leaderboard**: hub identity → seat→playerId in `GameMeta` → report
    results (`ranking` already populated by the adapter) → hub Glicko-2
    ratings (framework `ratings-design.md`).
