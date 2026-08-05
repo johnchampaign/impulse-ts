@@ -6,6 +6,7 @@
 import { card } from '../engine/catalog';
 import type { ImpulseState, PlayerColor, Seat } from '../engine/types';
 import { cardArtPath, useArt } from './assets';
+import { useHoverZoomTarget } from './CardZoom';
 import { cardTitle } from './labels';
 
 const S = 52; // hex spacing
@@ -30,6 +31,9 @@ function xy(q: number, r: number): { x: number; y: number } {
 
 export function MapView({ g }: { g: ImpulseState }) {
   const art = useArt();
+  // One overlay for the map: only one sector can be hovered at a time, and the
+  // enlarged copy has to render OUTSIDE the <svg> (see useHoverZoomTarget).
+  const zoom = useHoverZoomTarget();
   const colorOf = new Map<Seat, string>(g.players.map((p) => [p.seat, PLAYER_CSS[p.color]]));
   const nodePos = new Map(g.map.nodes.map((n) => [n.id, xy(n.q, n.r)]));
 
@@ -37,6 +41,7 @@ export function MapView({ g }: { g: ImpulseState }) {
     g.ships.filter((sp) => `${sp.loc.type}:${sp.loc.id}` === key);
 
   return (
+    <>
     <svg viewBox="0 0 640 520" className="map">
       {/* gates */}
       {g.map.gates.map((gt) => {
@@ -69,6 +74,12 @@ export function MapView({ g }: { g: ImpulseState }) {
         // Art mode draws the sector's card image; the Sector Core has no card
         // of its own in the module, so it keeps the styled disc in both modes.
         const asArt = art.useArt && nc !== undefined && nc.kind !== 'core';
+        const sectorSrc = asArt
+          ? art.resolve(cardArtPath(nc.kind === 'faceUp' ? nc.cardId : 0))
+          : '';
+        const sectorTitle = nc?.kind === 'faceUp' && nc.cardId !== 0
+          ? cardTitle(nc.cardId)
+          : `N${n.id} — unexplored`;
 
         let fill = '#1d2742';
         let label = '';
@@ -87,14 +98,17 @@ export function MapView({ g }: { g: ImpulseState }) {
             {asArt ? (
               <>
                 <image
-                  href={art.resolve(cardArtPath(nc.kind === 'faceUp' ? nc.cardId : 0))}
+                  href={sectorSrc}
                   x={x - CARD_W / 2}
                   y={y - CARD_H / 2}
                   width={CARD_W}
                   height={CARD_H}
                   preserveAspectRatio="xMidYMid slice"
+                  onMouseEnter={(e) => zoom.show(e.currentTarget, sectorSrc, sectorTitle)}
+                  onMouseLeave={zoom.hide}
+                  style={zoom.enabled ? { cursor: 'zoom-in' } : undefined}
                 >
-                  <title>{nc.kind === 'faceUp' && nc.cardId !== 0 ? cardTitle(nc.cardId) : `N${n.id} — unexplored`}</title>
+                  <title>{sectorTitle}</title>
                 </image>
                 <rect
                   x={x - CARD_W / 2} y={y - CARD_H / 2} width={CARD_W} height={CARD_H}
@@ -127,5 +141,7 @@ export function MapView({ g }: { g: ImpulseState }) {
         );
       })}
     </svg>
+    {zoom.overlay}
+    </>
   );
 }

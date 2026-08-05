@@ -103,6 +103,16 @@ Tyrants / Innovation / Rebellion.
   exists, so no build configuration can bake it in (`*.vmod` gitignored too).
 - The same option exists in the C# desktop app (`../Impulse`, branch
   `card-art`) so both versions can use module art.
+- **Hover zoom** (`src/ui/CardZoom.tsx`), ported from the Tyrants board: the
+  in-flow art never resizes (no reflow), the enlarged copy is a `position:
+  fixed` overlay so it escapes scrolling panes, and its `transform-origin` is
+  solved so the zoom stays inside the viewport. Only wired where `(hover:
+  hover)` matches — Tyrants had a bug where a tap left a card stuck enlarged.
+  Applies to the hand, every card chip (minerals / plan / techs / impulse
+  track), race sheets, and map sectors. Unlike Tyrants' flat 2.5x, the scale
+  targets the art's native width so 60px map sectors and 128px hand cards both
+  land near 340px. The desktop app already had the equivalent: hovering shows
+  the card, art included, in its detail pane.
 
 ## Done — AI opponent ✅
 

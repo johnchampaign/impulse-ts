@@ -120,3 +120,7 @@ select { width: auto; }
 
 /* chat */
 .chat-wrap { margin-bottom: 0.5rem; }
+
+/* hover zoom (art mode) */
+.acard { cursor: zoom-in; }
+.race-art { cursor: zoom-in; }
