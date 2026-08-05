@@ -53,6 +53,7 @@ function server(env: Env, origin: string) {
   });
   return new GameServer<ImpulseState, ImpulseAction, Seat>({
     snapshotHistory: 20,
+    appId: 'impulse', // isolates this game's bug reports on the shared backend
     adapter: impulseAdapter,
     codec: jsonCodec<ImpulseState>(),
     store: new SupabaseStore(supabase),
