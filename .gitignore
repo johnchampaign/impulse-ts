@@ -3,3 +3,9 @@ dist/
 src/gen/
 *.log
 .DS_Store
+
+.dev-only/
+
+# never commit publisher art (see src/ui/assets.tsx)
+*.vmod
+public/cards/

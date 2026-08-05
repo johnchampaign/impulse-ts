@@ -1,8 +1,29 @@
+import { createReadStream, existsSync } from 'node:fs';
 import react from '@vitejs/plugin-react';
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
+
+// Dev-server-only: serve a local .vmod at /dev-only/module.vmod so an
+// automated browser check can load card art without driving a native file
+// picker. `configureServer` runs ONLY under `vite dev` — it cannot put the
+// module (which is copyrighted publisher art) into a built bundle. Off unless
+// DEV_VMOD points at a file.
+function devVmodRoute(): Plugin {
+  return {
+    name: 'impulse-dev-vmod',
+    apply: 'serve',
+    configureServer(server) {
+      const path = process.env['DEV_VMOD'];
+      if (!path || !existsSync(path)) return;
+      server.middlewares.use('/dev-only/module.vmod', (_req, res) => {
+        res.setHeader('content-type', 'application/octet-stream');
+        createReadStream(path).pipe(res);
+      });
+    },
+  };
+}
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), devVmodRoute()],
   define: {
     // Build stamp for the footer + bug reports. Vite injects at build time —
     // the ENGINE never reads it (no Date.now in src/engine).

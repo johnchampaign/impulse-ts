@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react';
-import { useGame } from 'digital-boardgame-framework/client';
+import { useGame, VmodSetupDialog } from 'digital-boardgame-framework/client';
 import { card } from '../engine/catalog';
 import {
   RACES,
   type ImpulseAction, type ImpulseState, type PlayerState, type Tech,
 } from '../engine/types';
+import { ArtProvider, MODULE_NAME, MODULE_URL, useArt } from './assets';
+import { CardChip, CardFace, RaceBadge } from './CardView';
 import { createGameOnServer, makeClient, type CreatedGame } from './client';
 import { actionLabel, cardLabel, cardTitle } from './labels';
 import { MapView } from './MapView';
@@ -19,8 +21,61 @@ function params(): { game: string | null; token: string | null } {
 
 export function App() {
   const { game, token } = params();
-  if (game && token) return <PlayPage gameId={game} token={token} />;
-  return <Lobby />;
+  return (
+    <ArtProvider>
+      {game && token ? <PlayPage gameId={game} token={token} /> : <Lobby />}
+    </ArtProvider>
+  );
+}
+
+/** Header control + setup dialog for the two presentation modes. */
+function ArtControls() {
+  const art = useArt();
+  const [dismissed, setDismissed] = useState(false);
+  const showDialog = art.needsSetup && !dismissed;
+
+  const label = art.useArt
+    ? 'card art: VASSAL'
+    : art.prefersArt ? 'card art: not loaded' : 'card art: off (text UI)';
+
+  return (
+    <>
+      <button
+        className="linkish"
+        title={
+          art.useArt
+            ? 'Switch to the built-in text UI'
+            : 'Use card images from your own copy of the Impulse VASSAL module'
+        }
+        onClick={() => {
+          if (art.useArt) {
+            art.setPrefersArt(false);           // → text UI
+          } else {
+            art.setPrefersArt(true);            // → art (re-opens setup if needed)
+            setDismissed(false);
+          }
+        }}
+      >
+        {label}
+      </button>
+      {art.vmod.loading && (
+        <span className="art-progress">
+          unpacking module… {Math.round(art.vmod.progress * 100)}%
+        </span>
+      )}
+      {art.vmod.error && <span className="error">art: {art.vmod.error}</span>}
+      {showDialog && (
+        <VmodSetupDialog
+          api={art.vmod}
+          gameName="Impulse"
+          moduleName={MODULE_NAME}
+          moduleUrl={MODULE_URL}
+          skipLabel="Play with the built-in text UI"
+          onSkip={() => { setDismissed(true); art.setPrefersArt(false); }}
+        />
+      )}
+    </>
+  );
 }
 
 // ---------- lobby ----------
@@ -77,6 +132,15 @@ function Lobby() {
           </ul>
         </div>
       )}
+      <div className="lobby-art">
+        <h2>Card art</h2>
+        <p>
+          Play with the built-in text UI, or load card images from your own copy of
+          the official Impulse VASSAL module. The module stays on your machine —
+          images are unpacked in your browser and cached there.
+        </p>
+        <ArtControls />
+      </div>
       <footer>
         <a href="https://github.com/johnchampaign/impulse-ts" rel="noreferrer">source</a> · build {BUILD}
       </footer>
@@ -98,6 +162,12 @@ function techTitle(t: Tech): string {
   return cardTitle(t.cardId);
 }
 
+/** A tech slot: the researched card (art or text), or the basic tech's name. */
+function TechSlotView({ tech }: { tech: Tech }) {
+  if (tech.type === 'researched') return <CardChip id={tech.cardId} />;
+  return <span className="chip" title={techTitle(tech)}>{techLabel(tech)}</span>;
+}
+
 function PlayerPanel({ g, p, you }: { g: ImpulseState; p: PlayerState; you: string | null }) {
   const race = RACES.find((r) => r.id === p.raceId);
   const isActive = g.activeSeat === p.seat;
@@ -106,24 +176,26 @@ function PlayerPanel({ g, p, you }: { g: ImpulseState; p: PlayerState; you: stri
       <div className="player-head">
         <span className={`swatch swatch-${p.color}`} />
         <strong>{p.seat}{p.seat === you ? ' (you)' : ''}</strong>
-        <span className="race">{race?.name}</span>
+        <RaceBadge
+          raceId={p.raceId}
+          name={race?.name ?? '?'}
+          text={race?.basicUniqueTechText ?? ''}
+        />
         <span className="prestige">★ {p.prestige}/20</span>
       </div>
       <div className="player-row">
         ships in reserve: {p.shipsAvailable} · hand: {p.hand.length} · minerals:{' '}
-        {p.minerals.length === 0 ? '—' : p.minerals.map((id) => (
-          <span key={id} className="chip" title={cardTitle(id)}>{cardLabel(id)}</span>
+        {p.minerals.length === 0 ? '—' : p.minerals.map((id, i) => (
+          <CardChip key={`${id}-${i}`} id={id} />
         ))}
       </div>
       <div className="player-row">
         techs:{' '}
-        <span className="chip" title={techTitle(p.techLeft)}>{techLabel(p.techLeft)}</span>
-        <span className="chip" title={techTitle(p.techRight)}>{techLabel(p.techRight)}</span>
+        <TechSlotView tech={p.techLeft} />
+        <TechSlotView tech={p.techRight} />
         {p.plan.length > 0 && (
           <>
-            {' '}· plan: {p.plan.map((id) => (
-              <span key={id} className="chip" title={cardTitle(id)}>{cardLabel(id)}</span>
-            ))}
+            {' '}· plan: {p.plan.map((id, i) => <CardChip key={`${id}-${i}`} id={id} />)}
           </>
         )}
       </div>
@@ -241,6 +313,7 @@ function PlayPage({ gameId, token }: { gameId: string; token: string }) {
             ? `Game over — ${g.winner ?? 'nobody'} wins`
             : yourTurn ? '● YOUR MOVE' : `waiting for ${pendingSeat ?? '…'}`}
         </span>
+        <ArtControls />
         <button className="linkish" onClick={() => setShowReport(true)}>report a problem</button>
       </header>
 
@@ -254,7 +327,7 @@ function PlayPage({ gameId, token }: { gameId: string; token: string }) {
                 {g.impulse.map((id, i) => (
                   <li key={`${id}-${i}`}
                     className={g.phase === 'resolveImpulse' && i === g.impulseCursor ? 'cursor' : ''}>
-                    <span className="chip" title={cardTitle(id)}>{cardLabel(id)}</span>
+                    <CardChip id={id} />
                     {id !== 0 && <span className="etext"> {card(id).effectText}</span>}
                   </li>
                 ))}
@@ -274,10 +347,8 @@ function PlayPage({ gameId, token }: { gameId: string; token: string }) {
                   const shortcut = handAction(id);
                   return (
                     <button key={`${id}-${i}`} className="card-btn" disabled={!shortcut || submitting}
-                      title={cardTitle(id)} onClick={() => shortcut && act(shortcut)}>
-                      <div className={`band band-${id === 0 ? 'hidden' : card(id).color}`} />
-                      <div>{cardLabel(id)}</div>
-                      {id !== 0 && <div className="etext">{card(id).effectText}</div>}
+                      onClick={() => shortcut && act(shortcut)}>
+                      <CardFace id={id} />
                     </button>
                   );
                 })}

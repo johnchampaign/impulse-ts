@@ -1,12 +1,19 @@
 // SVG sector map: 19 hexes (pointy-top axial layout), gates as edges,
-// transports on nodes, cruisers on gate midpoints. Display-only; actions go
-// through the prompt panel buttons.
-import type { ImpulseState, PlayerColor, Seat } from '../engine/types';
+// transports on nodes, cruisers on gate midpoints. In art mode each sector's
+// card is drawn as its VASSAL image (face-down sectors use the card back);
+// otherwise as the id/type label. Display-only — actions go through the prompt
+// panel buttons.
 import { card } from '../engine/catalog';
+import type { ImpulseState, PlayerColor, Seat } from '../engine/types';
+import { cardArtPath, useArt } from './assets';
+import { cardTitle } from './labels';
 
 const S = 52; // hex spacing
 const CX = 320;
 const CY = 250;
+// Sector card art is landscape (355x223); keep the ratio so nothing squashes.
+const CARD_W = 66;
+const CARD_H = Math.round(CARD_W / 1.592);
 
 const PLAYER_CSS: Record<PlayerColor, string> = {
   Blue: '#4f8fe8', Green: '#4fae62', Purple: '#9e6ae0',
@@ -22,6 +29,7 @@ function xy(q: number, r: number): { x: number; y: number } {
 }
 
 export function MapView({ g }: { g: ImpulseState }) {
+  const art = useArt();
   const colorOf = new Map<Seat, string>(g.players.map((p) => [p.seat, PLAYER_CSS[p.color]]));
   const nodePos = new Map(g.map.nodes.map((n) => [n.id, xy(n.q, n.r)]));
 
@@ -52,11 +60,16 @@ export function MapView({ g }: { g: ImpulseState }) {
           </g>
         );
       })}
-      {/* nodes */}
+      {/* sectors */}
       {g.map.nodes.map((n) => {
         const { x, y } = nodePos.get(n.id)!;
         const nc = g.nodeCards[n.id];
         const transports = shipsAt(`node:${n.id}`);
+        const homeStroke = n.isHome ? colorOf.get(n.owner!) : undefined;
+        // Art mode draws the sector's card image; the Sector Core has no card
+        // of its own in the module, so it keeps the styled disc in both modes.
+        const asArt = art.useArt && nc !== undefined && nc.kind !== 'core';
+
         let fill = '#1d2742';
         let label = '';
         let sub = '';
@@ -68,20 +81,47 @@ export function MapView({ g }: { g: ImpulseState }) {
           label = c ? `#${nc.cardId}` : '?';
           sub = c ? `${c.actionType} ${c.size}` : '';
         }
+
         return (
           <g key={`n${n.id}`}>
-            <circle cx={x} cy={y} r={30} fill={fill}
-              stroke={n.isHome ? colorOf.get(n.owner!) : nc?.kind === 'core' ? '#b9a7ff' : '#3a4a76'}
-              strokeWidth={n.isHome || nc?.kind === 'core' ? 3 : 1.5} />
-            {nc?.kind === 'faceUp' && nc.cardId !== 0 && (
-              <circle cx={x} cy={y} r={30} fill="none"
-                stroke={CARD_CSS[card(nc.cardId).color]} strokeWidth={2} strokeDasharray="4 3" />
+            {asArt ? (
+              <>
+                <image
+                  href={art.resolve(cardArtPath(nc.kind === 'faceUp' ? nc.cardId : 0))}
+                  x={x - CARD_W / 2}
+                  y={y - CARD_H / 2}
+                  width={CARD_W}
+                  height={CARD_H}
+                  preserveAspectRatio="xMidYMid slice"
+                >
+                  <title>{nc.kind === 'faceUp' && nc.cardId !== 0 ? cardTitle(nc.cardId) : `N${n.id} — unexplored`}</title>
+                </image>
+                <rect
+                  x={x - CARD_W / 2} y={y - CARD_H / 2} width={CARD_W} height={CARD_H}
+                  fill="none" rx={3}
+                  stroke={homeStroke ?? '#3a4a76'} strokeWidth={n.isHome ? 3 : 1}
+                />
+                <text x={x} y={y + CARD_H / 2 + 9} className="node-sub">N{n.id}</text>
+              </>
+            ) : (
+              <>
+                <circle cx={x} cy={y} r={30} fill={fill}
+                  stroke={homeStroke ?? (nc?.kind === 'core' ? '#b9a7ff' : '#3a4a76')}
+                  strokeWidth={n.isHome || nc?.kind === 'core' ? 3 : 1.5} />
+                {nc?.kind === 'faceUp' && nc.cardId !== 0 && (
+                  <circle cx={x} cy={y} r={30} fill="none"
+                    stroke={CARD_CSS[card(nc.cardId).color]} strokeWidth={2} strokeDasharray="4 3" />
+                )}
+                <text x={x} y={y - 4} className="node-label">{label}</text>
+                <text x={x} y={y + 9} className="node-sub">{sub || `N${n.id}`}</text>
+              </>
             )}
-            <text x={x} y={y - 4} className="node-label">{label}</text>
-            <text x={x} y={y + 9} className="node-sub">{sub || `N${n.id}`}</text>
+            {/* Transports sit on the sector card, as they do on the table. */}
             {transports.map((sp, i) => (
-              <circle key={i} cx={x - 18 + (i % 5) * 9} cy={y + 20 - Math.floor(i / 5) * 9}
-                r={4} fill={colorOf.get(sp.owner)} stroke="#111" />
+              <circle key={i}
+                cx={x - 18 + (i % 5) * 9}
+                cy={(asArt ? y + 12 : y + 20) - Math.floor(i / 5) * 9}
+                r={4} fill={colorOf.get(sp.owner)} stroke="#111" strokeWidth={1.2} />
             ))}
           </g>
         );
