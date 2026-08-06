@@ -217,6 +217,43 @@ export const onRequest = async ({ request, env }: RouteCtx): Promise<Response> =
         : json({ enabled: false });
     }
 
+    // GET /api/reports — triage listing for the automated problem-report loop.
+    // Public-read on purpose: reports carry no PII (tokens and emails live in
+    // GameMeta, never in a report row), and token-gating this would mean the
+    // triage agent has no way to read reports without a human ferrying a
+    // secret every run. `?unresolved=1` is the normal triage query. The heavy
+    // reproduction blobs are dropped unless `?full=1` — a listing should stay
+    // scannable, and the blobs are per-report detail.
+    if (path === '/reports' && request.method === 'GET') {
+      const p = url.searchParams;
+      const rows = await server(env, originOf(env, request)).listReports({
+        appId: 'impulse', // shared backend — never surface another game's reports
+        ...(p.get('unresolved') ? { unresolved: true } : {}),
+        ...(p.get('since') ? { since: p.get('since')! } : {}),
+        ...(p.get('severity') ? { severity: p.get('severity')! } : {}),
+        ...(p.get('category') ? { category: p.get('category')! } : {}),
+        ...(p.get('gameId') ? { gameId: p.get('gameId')! } : {}),
+      });
+      if (p.get('full')) return json({ reports: rows });
+      return json({
+        reports: rows.map(({ serverSnapshot: _s, reporterView: _v, clientLog: _l, ...rest }) => rest),
+      });
+    }
+
+    // POST /api/reports/:id/resolve — public-write, matching the read tier: this
+    // is a routine, reversible triage action (it stamps a resolution string), so
+    // the same reasoning that makes the listing public applies here.
+    const resolveMatch = path.match(/^\/reports\/([^/]+)\/resolve$/);
+    if (resolveMatch && request.method === 'POST') {
+      const body = await readJson<{ resolution?: string }>(request);
+      if (typeof body?.resolution !== 'string' || !body.resolution.trim()) {
+        return bad('resolution required', 422);
+      }
+      await server(env, originOf(env, request))
+        .resolveReport(resolveMatch[1]!, body.resolution.trim());
+      return json({ ok: true });
+    }
+
     // POST /api/games — create. `ai` maps seats to AI policy keys, e.g.
     // {"numPlayers":2,"ai":{"P2":"greedy"}} for one human vs one AI.
     if (path === '/games' && request.method === 'POST') {
