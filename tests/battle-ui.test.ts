@@ -127,6 +127,46 @@ describe('battle reinforcement prompt (cross-seat)', () => {
     expect(JSON.stringify(impulseAdapter.viewFor(g, null).log)).not.toContain(`#${defenderCard}`);
   });
 
+  // Rulebook p.34: "The defending player places any number of cards face-down
+  // in front of them, followed by the attacker." At the table the attacker can
+  // COUNT that commitment before choosing — that is the whole point of the
+  // defender going first. Reported by a player who could not find it anywhere.
+  it('tells the attacker how many cards the defender committed, without revealing them', () => {
+    const { g } = stagedBattle();
+    const [first, second] = getPlayer(g, 'P2').hand as [number, number];
+    // Defender commits both cards; the empty hand closes their commitment.
+    applyAction(g, registry, { kind: 'answer', answer: { type: 'handCard', cardId: first } }, 'P2');
+    applyAction(g, registry, { kind: 'answer', answer: { type: 'handCard', cardId: second } }, 'P2');
+
+    const req = g.effect!.pendingChoice!;
+    expect(req.type).toBe('selectHandCard');
+    expect(req.seat).toBe('P1');
+    expect(req.prompt).toContain('ATTACKER');
+    expect(req.prompt).toContain('committed 2 cards face-down');
+
+    const attackerLog = JSON.stringify(impulseAdapter.viewFor(g, 'P1').log);
+    expect(attackerLog).toContain('P2 commits 2 cards face-down');
+    // The count is public; the faces are still not.
+    expect(attackerLog).not.toMatch(new RegExp(`#${first}\\b`));
+    expect(attackerLog).not.toMatch(new RegExp(`#${second}\\b`));
+    // Spectators see the count too — it is public information at the table.
+    expect(JSON.stringify(impulseAdapter.viewFor(g, null).log))
+      .toContain('P2 commits 2 cards face-down');
+  });
+
+  it('tells the attacker when the defender committed nothing, and keeps the defender blind', () => {
+    const { g } = stagedBattle();
+    // The defender decides with no knowledge of the attacker (who goes second).
+    expect(g.effect!.pendingChoice!.prompt).not.toContain('committed');
+
+    applyAction(g, registry, { kind: 'answer', answer: { type: 'handCard', cardId: null } }, 'P2');
+    const req = g.effect!.pendingChoice!;
+    expect(req.seat).toBe('P1');
+    expect(req.prompt).toContain('committed NO cards face-down');
+    expect(JSON.stringify(impulseAdapter.viewFor(g, 'P1').log))
+      .toContain('P2 commits no cards face-down');
+  });
+
   it('resolves to a winner, destroys the losing fleet, and awards prestige', () => {
     const { g } = stagedBattle();
     let guard = 0;

@@ -108,8 +108,7 @@ export function battleStep(g: ImpulseState, ctx: EffectCtx, bs: BattleState): bo
         });
         return promptReinforce(g, ctx, bs, true);
       }
-      bs.stage = 'awaitingAttackerReinforce';
-      return promptReinforce(g, ctx, bs, false);
+      return closeCommitting(g, ctx, bs, true);
     }
     return promptReinforce(g, ctx, bs, true);
   }
@@ -130,8 +129,7 @@ export function battleStep(g: ImpulseState, ctx: EffectCtx, bs: BattleState): bo
         });
         return promptReinforce(g, ctx, bs, false);
       }
-      bs.stage = 'resolving';
-      return resolve(g, ctx, bs);
+      return closeCommitting(g, ctx, bs, false);
     }
     return promptReinforce(g, ctx, bs, false);
   }
@@ -140,17 +138,38 @@ export function battleStep(g: ImpulseState, ctx: EffectCtx, bs: BattleState): bo
   return true;
 }
 
+/** One side is done committing: publish HOW MANY cards it laid face-down, then
+ *  hand off. The count is public at the table (rulebook p.34 — the cards are
+ *  placed "face-down in front of them"), so unlike the per-card
+ *  `battle.reinforce` entries this one is NOT secret; only the faces stay
+ *  hidden until reveal. */
+function closeCommitting(
+  g: ImpulseState, ctx: EffectCtx, bs: BattleState, defender: boolean,
+): boolean {
+  const who = defender ? bs.defender : bs.attacker;
+  const count = defender ? bs.defenderReinforcements.length : bs.attackerReinforcements.length;
+  log(g, {
+    side: who,
+    kind: 'battle.commit',
+    payload: { side: who, role: defender ? 'defender' : 'attacker', count },
+    msg: count === 0
+      ? `⚔ ${who} commits no cards face-down`
+      : `⚔ ${who} commits ${count} card${count === 1 ? '' : 's'} face-down`,
+  });
+  if (defender) {
+    bs.stage = 'awaitingAttackerReinforce';
+    return promptReinforce(g, ctx, bs, false);
+  }
+  bs.stage = 'resolving';
+  return resolve(g, ctx, bs);
+}
+
 function promptReinforce(g: ImpulseState, ctx: EffectCtx, bs: BattleState, defender: boolean): boolean {
   const who = defender ? bs.defender : bs.attacker;
   const hand = [...getPlayer(g, who).hand];
   if (hand.length === 0) {
     // No cards to reinforce/bluff with → auto-skip.
-    if (defender) {
-      bs.stage = 'awaitingAttackerReinforce';
-      return promptReinforce(g, ctx, bs, false);
-    }
-    bs.stage = 'resolving';
-    return resolve(g, ctx, bs);
+    return closeCommitting(g, ctx, bs, defender);
   }
   // Rulebook p.30: any face-down card may be committed, including bluffs that
   // don't match. Bluffs reveal and return to hand; only matches add icons.
@@ -160,7 +179,13 @@ function promptReinforce(g: ImpulseState, ctx: EffectCtx, bs: BattleState, defen
     legalCardIds: hand,
     allowNone: true,
     noneLabel: 'PASS — no reinforcement',
-    prompt: PROMPT.battleReinforce(who, defender),
+    prompt: PROMPT.battleReinforce(
+      who,
+      defender,
+      defender ? bs.defenderReinforcements.length : bs.attackerReinforcements.length,
+      // The defender chooses blind; the attacker sees the defender's count.
+      defender ? null : bs.defenderReinforcements.length,
+    ),
   };
   return false;
 }

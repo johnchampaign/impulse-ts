@@ -24,9 +24,31 @@ export const PROMPT = {
     `Sector Core: choose mineral color for boost (+${arrivingTransports} arriving transports).`,
 
   /** Battle: commit a face-down reinforcement, or pass. */
-  battleReinforce: (who: string, defender: boolean): string =>
-    `${BATTLE_MARK} ${defender ? 'DEFENDER' : 'ATTACKER'} ${who}: commit any card face-down as a ` +
-    `reinforcement (bluffs return to hand on reveal), or PASS — placing zero cards is legal (rulebook p.34).`,
+  // `facing` is what the opposing side has already committed face-down. The
+  // rulebook has the defender place cards "face-down in front of them,
+  // followed by the attacker" (p.34) — so at the table the attacker can COUNT
+  // the defender's commitment before choosing, even though the faces stay
+  // hidden. Withholding the count would make the attacker strictly worse off
+  // than in the physical game, so it goes in the prompt.
+  battleReinforce: (
+    who: string,
+    defender: boolean,
+    committed: number,
+    facing: number | null,
+  ): string => {
+    const facingText = facing === null
+      ? ''
+      : facing === 0
+        ? 'The defender committed NO cards face-down. '
+        : `The defender committed ${facing} card${facing === 1 ? '' : 's'} face-down ` +
+          '(faces hidden until reveal). ';
+    const soFar = committed === 0
+      ? ''
+      : ` You have committed ${committed} so far.`;
+    return `${BATTLE_MARK} ${defender ? 'DEFENDER' : 'ATTACKER'} ${who}: ${facingText}` +
+      'Commit any card face-down as a reinforcement (bluffs return to hand on reveal), ' +
+      `or PASS — placing zero cards is legal (rulebook p.34).${soFar}`;
+  },
 } as const;
 
 /** Prefixes/markers consumers match on. Kept next to the builders above so a
