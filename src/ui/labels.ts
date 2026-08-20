@@ -10,8 +10,19 @@ export function cardLabel(id: number): string {
 
 export function cardTitle(id: number): string {
   if (id === 0) return 'Hidden card';
+  return `${cardHeading(id)}\n${cardEffectText(id)}`;
+}
+
+/** Heading and body split apart, for the tap-opened detail sheet (which lays
+ *  them out as separate elements rather than one newline-joined tooltip). */
+export function cardHeading(id: number): string {
+  if (id === 0) return 'Hidden card';
   const c = card(id);
-  return `#${c.id} — ${c.actionType} (${c.color}, size ${c.size})\n${c.effectText}`;
+  return `#${c.id} — ${c.actionType} (${c.color}, size ${c.size})`;
+}
+
+export function cardEffectText(id: number): string {
+  return id === 0 ? 'Face-down — not visible to you.' : card(id).effectText;
 }
 
 export function locLabel(loc: ShipLocation): string {

@@ -9,8 +9,8 @@ import {
   type ImpulseAction, type ImpulseState, type PlayerState, type Tech,
 } from '../engine/types';
 import { AI_POLICY_LABELS } from '../ai/controllers';
-import { ArtProvider, MODULE_NAME, MODULE_URL, useArt } from './assets';
-import { CardChip, CardFace, RaceBadge } from './CardView';
+import { ArtProvider, MODULE_NAME, MODULE_URL, raceArtPath, useArt } from './assets';
+import { CardChip, CardFace, Detailable, RaceBadge } from './CardView';
 import { claimSeat, createGameOnServer, makeChatClient, makeClient, type CreatedGame } from './client';
 import { fetchRealtimeConfig, realtimeSubscribe, type RealtimeConfig } from './realtime';
 import { actionLabel, cardLabel, cardTitle } from './labels';
@@ -249,10 +249,22 @@ function techTitle(t: Tech): string {
   return cardTitle(t.cardId);
 }
 
-/** A tech slot: the researched card (art or text), or the basic tech's name. */
+/** A tech slot: the researched card (art or text), or the basic tech's name.
+ *  The basic techs used to be a bare `title=` tooltip, so on a phone a faction
+ *  tech showed its name with no way to read what it does — the report that
+ *  prompted this. Tapping now opens the detail sheet, illustrated with the race
+ *  card (which is where the faction tech is printed) when art is on. */
 function TechSlotView({ tech }: { tech: Tech }) {
+  const art = useArt();
   if (tech.type === 'researched') return <CardChip id={tech.cardId} />;
-  return <span className="chip" title={techTitle(tech)}>{techLabel(tech)}</span>;
+  const src = tech.type === 'basicUnique' && art.useArt
+    ? art.resolve(raceArtPath(tech.raceId))
+    : null;
+  return (
+    <Detailable title={techLabel(tech)} text={techTitle(tech)} src={src}>
+      <span className="chip">{techLabel(tech)}</span>
+    </Detailable>
+  );
 }
 
 function PlayerPanel({ g, p, you }: { g: ImpulseState; p: PlayerState; you: string | null }) {
@@ -286,6 +298,50 @@ function PlayerPanel({ g, p, you }: { g: ImpulseState; p: PlayerState; you: stri
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+/** Kinds that answer "did that actually happen?" — scoring, battles, research.
+ *  A player checking whether they earned a Sector Core point wants these and
+ *  nothing else; the move-by-move traffic buries them otherwise. */
+const HIGHLIGHT_KINDS = new Set([
+  'prestige.gain', 'battle.start', 'battle.result', 'battle.commit',
+  'battle.reinforce', 'battle.bluff', 'ship.destroyed', 'research', 'game.start',
+]);
+
+/** How many entries the pane keeps. One turn of a 3-player game runs to ~60
+ *  entries, so the old 25-entry window could not reach the previous turn's
+ *  scoring at all — which is exactly what players go to the log to check. */
+const LOG_WINDOW = 400;
+
+function LogPanel({ log }: { log: ImpulseState['log'] }) {
+  const [scoringOnly, setScoringOnly] = useState(false);
+  const shown = useMemo(() => {
+    const filtered = scoringOnly ? log.filter((e) => HIGHLIGHT_KINDS.has(e.kind)) : log;
+    return filtered.slice(-LOG_WINDOW).reverse();
+  }, [log, scoringOnly]);
+  return (
+    <div className="log">
+      <div className="log-head">
+        <h3>Log</h3>
+        <label className="log-filter">
+          <input
+            type="checkbox"
+            checked={scoringOnly}
+            onChange={(e) => setScoringOnly(e.target.checked)}
+          />
+          scoring &amp; battles only
+        </label>
+      </div>
+      <ul>
+        {shown.map((e) => (
+          <li key={e.seq} className={HIGHLIGHT_KINDS.has(e.kind) ? 'log-key' : undefined}>
+            <span className="seq">{e.turn}</span> {e.msg ?? e.kind}
+          </li>
+        ))}
+      </ul>
+      {shown.length === 0 && <p className="hint">Nothing logged yet.</p>}
     </div>
   );
 }
@@ -509,14 +565,7 @@ function PlayPage({ gameId, token }: { gameId: string; token: string }) {
             </div>
           )}
 
-          <div className="log">
-            <h3>Log</h3>
-            <ul>
-              {g.log.slice(-25).reverse().map((e) => (
-                <li key={e.seq}><span className="seq">{e.turn}</span> {e.msg ?? e.kind}</li>
-              ))}
-            </ul>
-          </div>
+          <LogPanel log={g.log} />
         </section>
       </div>
 

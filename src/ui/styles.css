@@ -96,9 +96,17 @@ select { width: auto; }
 .impulse ol { margin: 0; padding-left: 1.4rem; }
 .impulse li.cursor { outline: 1px solid var(--gold); border-radius: 4px; }
 .log { background: var(--panel); border-radius: 8px; padding: 0.5rem 0.7rem; }
-.log ul { margin: 0; padding: 0; list-style: none; max-height: 18rem; overflow-y: auto; }
-.log li { border-bottom: 1px solid #1c2440; padding: 0.15rem 0; color: var(--dim); }
+.log ul { margin: 0; padding: 0; list-style: none; max-height: 24rem; overflow-y: auto;
+  overscroll-behavior: contain; }
+.log li { border-bottom: 1px solid #1c2440; padding: 0.15rem 0; color: var(--dim);
+  white-space: pre-wrap; }
 .log .seq { color: #4a5880; margin-right: 0.4rem; }
+.log-head { display: flex; align-items: baseline; justify-content: space-between;
+  gap: 0.5rem; flex-wrap: wrap; }
+.log-filter { color: var(--dim); font-size: 0.8rem; display: flex; align-items: center;
+  gap: 0.3rem; cursor: pointer; }
+/* Scoring / battle lines stay findable in a long scrollback. */
+.log li.log-key { color: var(--ink); }
 
 /* dialog */
 .dialog-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.6);
@@ -106,6 +114,18 @@ select { width: auto; }
 .dialog { background: var(--panel); border-radius: 10px; padding: 1rem; width: min(28rem, 92vw);
   display: flex; flex-direction: column; gap: 0.6rem; }
 .dialog-buttons { display: flex; gap: 0.6rem; }
+
+/* tap-opened card / tech detail (the only way to read a card on a touch
+   screen — `title=` and the hover zoom both need a mouse) */
+.detailable { cursor: pointer; display: inline-flex; align-items: center;
+  border-radius: 6px; }
+.detailable:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.card-detail { align-items: center; text-align: center; }
+.card-detail h3 { margin: 0; }
+.card-detail-art { width: min(20rem, 78vw); height: auto; border-radius: 6px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.8); }
+.card-detail-text { margin: 0; color: var(--ink); white-space: pre-wrap;
+  line-height: 1.4; }
 
 /* lobby seat setup */
 .seat-setup { background: var(--panel); border-radius: 8px; padding: 0.6rem 0.9rem; margin-top: 1rem; }
