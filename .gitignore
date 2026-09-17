@@ -9,3 +9,7 @@ src/gen/
 # never commit publisher art (see src/ui/assets.tsx)
 *.vmod
 public/cards/
+
+# local secrets (Cloudflare token for deploys)
+.env
+.env.local
