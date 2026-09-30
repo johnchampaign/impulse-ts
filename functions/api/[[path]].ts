@@ -65,6 +65,10 @@ function server(env: Env, origin: string) {
     codec: jsonCodec<ImpulseState>(),
     store: new SupabaseStore(supabase),
     aiControllers: impulseAiControllers,   // server-driven AI seats (rated)
+    // maxSteps, not perSeat: non-active seats answer choices mid-turn (~0.5
+    // hand-offs per seat-turn at 6p), so perSeat would split at each one. At
+    // ~1-2 ms/AI action, 20 actions is ~20-45 ms per request.
+    aiSlice: { maxSteps: 20 },
     // Signal-only realtime: broadcasts "something changed"; clients re-fetch
     // their own redacted view. Only wired when the public anon key exists,
     // since a client with no key can't subscribe anyway.
